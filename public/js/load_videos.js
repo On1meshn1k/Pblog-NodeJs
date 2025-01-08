@@ -1,44 +1,36 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+// load_videos.js
 
-const firebaseConfig = {
-  apiKey: "AIzaSyDfKH9o_5TIursPTAV3kgHRo45Sh6-2T4Y",
-  authDomain: "pblog-8e245.firebaseapp.com",
-  projectId: "pblog-8e245",
-  storageBucket: "pblog-8e245.appspot.com",
-  messagingSenderId: "438974043232",
-  appId: "1:438974043232:web:592cecb687e77958c2df05",
-  databaseURL: "https://pblog-8e245-default-rtdb.europe-west1.firebasedatabase.app/",
-};
+const videoListContainer = document.getElementById("videoList");
 
-const app = initializeApp(firebaseConfig);
-const database = getDatabase(app);
+async function fetchVideos() {
+    try {
+        const response = await fetch("http://localhost:3000/api/videos"); // Маршрут вашего сервера
+        if (!response.ok) throw new Error("Ошибка загрузки видео");
 
-const videoListContainer = document.querySelector('.list-container');
+        const videos = await response.json();
+        renderVideos(videos);
+    } catch (error) {
+        console.error(error);
+        videoListContainer.innerHTML = "<p>Ошибка загрузки видео</p>";
+    }
+}
 
-function fetchVideos() {
-    const videosRef = ref(database, 'videos');
-    const userRef = ref(database, 'users');
-    onValue(videosRef, (snapshot) => {
-        videoListContainer.innerHTML = '';
-        snapshot.forEach((childSnapshot) => {
-            const video = childSnapshot.val();
-            const videoElement = `
-                <div class="vid-list">
-                    <a href="video.html?videoId=${childSnapshot.key}"><img src="${video.thumbnailUrl}" class="thumbnail"></a>
-                    <div class="flex-div">
-                        <div class="vid-info">
-                            <a href="video.html?videoId=${childSnapshot.key}">${video.title}</a>
-                            <p>Автор: ${video.userId}</p>
-                            <p>${video.uploadDate}</p>
-                        </div>
-                    </div>
-                </div>
-            `;
-            videoListContainer.innerHTML += videoElement;
-        });
-    });
+function renderVideos(videos) {
+    videoListContainer.innerHTML = videos
+        .map(
+            (video) => `
+            <div class="video-item" onclick="window.location.href='/video.html?id=${video.video_id}'">
+                <img src="${video.thumbnail_url}" alt="${video.title}" class="video-thumbnail">
+                <h3>${video.title}</h3>
+                <p>${video.description}</p>
+                <p>Просмотры: ${video.views}</p>
+            </div>
+        `
+        )
+        .join("");
 }
 
 
+// Запуск функции
 fetchVideos();
+

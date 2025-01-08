@@ -1,85 +1,54 @@
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-import { getStorage } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+const isLoggedIn = localStorage.getItem("user");
 
-// Your web app's Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyDfKH9o_5TIursPTAV3kgHRo45Sh6-2T4Y",
-  authDomain: "pblog-8e245.firebaseapp.com",
-  projectId: "pblog-8e245",
-  storageBucket: "pblog-8e245.appspot.com",
-  messagingSenderId: "438974043232",
-  appId: "1:438974043232:web:592cecb687e77958c2df05",
-  databaseURL: "https://pblog-8e245-default-rtdb.europe-west1.firebasedatabase.app/",
-};
+const usernameSpan = document.getElementById("username");
+const logoutButton = document.getElementById("logout");
+const authLink = document.querySelector(".auth");
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getDatabase(app);
+if (isLoggedIn) {
+    const user = JSON.parse(isLoggedIn);
+    usernameSpan.textContent = user.username;  // Отображаем имя пользователя
+    authLink.style.display = "none";           // Прячем ссылку "Войти"
+    logoutButton.style.display = "block"; // Показываем кнопку "Выйти"
 
+    // Логика выхода
+    logoutButton.addEventListener("click", () => {
+        localStorage.removeItem("user"); // Удаляем пользователя из localStorage
+        window.location.reload();         // Перезагружаем страницу
+    });
+} else {
+    usernameSpan.style.display = "none";     // Прячем имя пользователя
+    logoutButton.style.display = "none";    // Прячем кнопку "Выйти"
+    authLink.style.display = "block"; // Показываем ссылку "Войти"
+}
 
-// регистрация
-const submit = document.getElementById('submit');
-
-submit.addEventListener("click", function (event) {
-  event.preventDefault()
-
-  const username = document.getElementById('login').value;
-  const email = document.getElementById('email').value;
-  const password = document.getElementById('password').value;
-
-  createUserWithEmailAndPassword(auth, email, password)
-    .then((userCredential) => {
-      //данные введены правильно
-      const user = userCredential.user;
-      localStorage.setItem('uid', user.uid);
-      set(ref(db,"users/" + user.uid),{
-        username: username,
-        email: email,
-        password: password
-      })
-      alert("Регистрация прошла успешно!");
-      window.location.href = "index.html";
-    })
-    .catch((error) => {
-      const errorCode = error.code;
-      const errorMessage = error.message;
-      alert(errorMessage);
-      // ..
+// Функция для отправки запроса на сервер для аутентификации
+async function loginUser(email, password) {
+    const response = await fetch('/login', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }), // Отправляем данные на сервер
     });
 
-    set(ref(db, "users/" + username.value),{
+    const data = await response.json();
 
-      username: username,
-      email: email,
-      password: password
+    if (response.ok) {
+        console.log("User logged in:", data);
+        // Сохраняем информацию о пользователе в localStorage
+        localStorage.setItem('user', JSON.stringify(data.user));
+        window.location.reload(); // Перезагружаем страницу для обновления состояния
+    } else {
+        console.error("Login failed:", data.message);
+    }
+}
 
-    });
-    //alert("Создана БД!")
-});
+// Пример использования loginUser при отправке формы
+document.getElementById("submit1").addEventListener("click", function(e) {
+    e.preventDefault(); // Останавливаем стандартную отправку формы
 
-// вход
-const submit1 = document.getElementById('submit1');
+    const email = document.getElementById("email1").value;
+    const password = document.getElementById("password1").value;
 
-submit1.addEventListener("click", function (event) {
-    event.preventDefault()
-
-    const email = document.getElementById('email1').value;
-    const password = document.getElementById('password1').value;
-
-    signInWithEmailAndPassword(auth, email, password)
-        .then((userCredential) => {
-            const user = userCredential.user;
-            alert("Вход...");
-            window.location.href = "index.html";
-        })
-        .catch((error) => {
-            const errorMessage = error.message;
-            alert(errorMessage);
-        });
+    loginUser(email, password); // Вызов функции для входа
 });
