@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="css/style.css" type="text/css">
+    <link rel="stylesheet" href="css/channel.css" type="text/css">
+    <title>Ваш канал</title>
+</head>
+
+<body>
+
+    <nav class="flex-div">
+        <div class="nav-left flex-div">
+            <img src="images/menu.png" class="menu-icon">
+            <a href="index.html"><img src="images/logo.png" class="logo"></a>
+        </div>
+        <div class="nav-middle flex-div">
+            <div class="search-box flex-div">
+                <input type="text" placeholder="Поиск">
+                <img src="images/search.png">
+            </div>
+        </div>
+        <div class="nav-right flex-div">
+            <img src="images/upload.png" class="upload" id="upload">
+            <span class="username" id="username"></span>
+            <button class="logout" id="logout">Выйти</button>
+            <a href="enter.html" class="auth">Войти</a>
+        </div>
+    </nav>
+    <!-- sidebar -->
+
+    <div class="sidebar">
+        <div class="shortcut-links">
+            <a href="index.html"><img src="images/home.png">
+                <p>Главная</p>
+            </a>
+            <a href="channel.html" class="my_channel"><img src="images/subscriprion_active.png">
+                <p>Мой канал</p>
+            </a>
+            <a href=""><img src="images/library.png">
+                <p>Библиотека</p>
+            </a>
+            <hr>
+        </div>
+        <div class="subscribe-list">
+            <h3>Подписки</h3>
+        </div>
+    </div>
+
+    <!-- channel -->
+    <div class="container">
+
+        <div class="channel-info">
+            <span class="channel-name"></span>
+            <div class="logotype">
+                <button class="change-logo" id="change-logo">Редактировать</button>
+                <img class="channel-logo" src="images/profile.png" alt="Фото канала">
+            </div>
+        </div>
+        <hr>
+        <div class="channel-videos">
+            <div class="list-container">
+                <div class="vid-list"></div>
+            </div>
+        </div>
+
+    </div>
+
+
+<script type="module" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"></script>
+<script type="module" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js"></script>
+<script type="module" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js"></script>
+<script type="module" src="js/script.js"></script>
+<script type="module" src="js/channel.js"></script>
+<script src=""></script>
+</body>
+
+</html>

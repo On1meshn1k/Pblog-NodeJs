@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PBlog|Редактирование профиля</title>
+    <link type="text/css" rel="stylesheet" href="css/edit-profile.css">
+</head>
+<body>
+    <div class="edit-profile">
+        <div class="container">
+            <h1>Редактировать профиль</h1>
+            <label for="username" class="username">Имя пользователя:</label><br>
+            <input type="text" id="username" name="username" maxlength="12"><br>
+            <label for="avatar" class="avatar">Аватар профиля:</label><br>
+            <input type="file" id="avatar" name="avatar" accept="image/*"><br>
+            <div class="btns">
+                <button id="previous_page">На главную</button>
+                <button id="submit">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+
+<script type="module" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"></script>
+<script type="module" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js"></script>
+<script type="module" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js"></script>
+<script type="module" src="js/edit-profile.js"></script>
+
+</html>

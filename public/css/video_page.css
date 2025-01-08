@@ -1,0 +1,78 @@
+/*пу-пу-пу*/
+
+.video-wrapper video {
+    width: 100%;
+    height: 720px;
+}
+
+.comments-section {
+    margin-top: 20px;
+}
+
+#commentForm {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+#commentInput {
+    flex-grow: 1;
+    padding: 10px;
+    border-radius: 5px;
+    color: #000;
+}
+
+#commentsContainer {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.comment {
+    padding: 10px;
+    border-bottom: 1px solid #ccc;
+}
+
+#likeButton {
+    cursor: pointer;
+    padding: 10px;
+    margin-top: 10px;
+    background: none;
+    border: none;
+    font-size: 20px;
+}
+
+.videobar {
+    width: 300px;
+    margin-left: 20px;
+    float: right;
+}
+
+.videobar h3 {
+    font-size: 1.5em;
+    margin-bottom: 10px;
+}
+
+.vid-list {
+    margin-bottom: 20px;
+}
+
+.thumbnail {
+    width: 100%;
+    height: auto;
+}
+
+.flex-div {
+    display: flex;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.channel-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+}
+
+.vid-info {
+    margin-left: 10px;
+}

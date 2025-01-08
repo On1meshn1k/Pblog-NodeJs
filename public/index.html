@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="js/script.js" defer></script>
+    <title>PBlog</title>
+</head>
+
+<body>
+
+    <nav class="flex-div">
+        <div class="nav-left flex-div">
+            <img src="images/menu.png" class="menu-icon">
+            <a href="home"><img src="images/logo.png" class="logo"></a>
+        </div>
+        <div class="nav-middle flex-div">
+            <div class="search-box flex-div">
+                <input type="text" placeholder="Поиск">
+                <img src="images/search.png">
+            </div>
+        </div>
+        <div class="nav-right flex-div">
+            <img src="images/upload.png" class="upload" id="upload">
+            <span class="username" id="username"></span>
+            <button class="logout" id="logout">Выйти</button>
+            <a href="enter.html" class="auth">Войти</a>
+        </div>
+    </nav>
+    <!-- sidebar -->
+
+    <div class="sidebar">
+        <div class="shortcut-links">
+            <a href=""><img src="images/home_active.png">
+                <p>Главная</p>
+            </a>
+            <a href="channel.html"><img src="images/subscriprion.png">
+                <p>Мой канал</p>
+            </a>
+            <a href=""><img src="images/library.png">
+                <p>Библиотека</p>
+            </a>
+            <hr>
+        </div>
+        <div class="subscribe-list">
+            <h3>Подписки</h3>
+        </div>
+    </div>
+
+    <!-- main -->
+
+    <div class="container">
+        <div class="list-container" id="videoList">
+        </div>
+    </div>
+
+    <script type="module" src="js/main_script.js"></script>
+    <script type="module" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"></script>
+    <script type="module" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js"></script>
+    <script type="module" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js"></script>
+    <script type="module" src="js/load_videos.js"></script>
+</body>
+
+</html>
+

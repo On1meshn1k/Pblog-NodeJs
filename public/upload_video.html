@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Загрузка видео</title>
+  <link rel="stylesheet" href="css/upload_video.css" type="text/css">
+</head>
+
+<body>
+
+  <div class="upload-container">
+    <h2>Загрузить видео</h2>
+    <input type="file" accept="video/*" id="fileInput">
+    <input type="text" id="videoTitleInput" placeholder="Введите название видео">
+    <input type="file" accept="image/*" id="thumbnailInput" placeholder="Выберите обложку">
+    <button id="uploadButton">Загрузить</button>
+    <button id="previous_page">На главную</button>
+    <progress value="0" max="100" id="uploadProgress"></progress>
+    <p id="uploadMessage"></p>
+  </div>
+
+  <script type="module" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"></script>
+  <script type="module" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js"></script>
+  <script type="module" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js"></script>
+  <script type="module" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js"></script>
+  <script type="module" src="js/upload_video.js"></script>
+
+</body>
+</html>
