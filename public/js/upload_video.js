@@ -17,6 +17,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let isSubmitting = false;
 
+    // Проверка размера файла
+    const checkFileSize = (file, maxSizeMB) => {
+        if (file.size > maxSizeMB * 1024 * 1024) {
+            throw new Error(`Размер файла ${file.name} превышает ${maxSizeMB}MB`);
+        }
+    };
+
     uploadForm.addEventListener('submit', async (e) => {
         e.preventDefault();
 
@@ -28,6 +35,14 @@ document.addEventListener('DOMContentLoaded', () => {
         submitButton.textContent = 'Загрузка...';
 
         try {
+            // Проверяем размер файлов
+            if (videoInput.files[0]) {
+                checkFileSize(videoInput.files[0], 500); // 500MB для видео
+            }
+            if (thumbnailInput.files[0]) {
+                checkFileSize(thumbnailInput.files[0], 5); // 5MB для обложки
+            }
+
             const formData = new FormData();
             formData.append('video', videoInput.files[0]);
             formData.append('thumbnail', thumbnailInput.files[0]);

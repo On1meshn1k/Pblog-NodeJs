@@ -6,6 +6,11 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const multer = require("multer");
 const fs = require('fs');
+const ffmpeg = require('fluent-ffmpeg');
+const ffmpegPath = require('ffmpeg-static');
+
+// Устанавливаем путь к FFmpeg
+ffmpeg.setFfmpegPath(ffmpegPath);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -48,7 +53,8 @@ const storage = multer.diskStorage({
         cb(null, dir);
     },
     filename: function (req, file, cb) {
-        cb(null, Date.now() + '-' + file.originalname);
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, uniqueSuffix + path.extname(file.originalname));
     }
 });
 
@@ -70,7 +76,8 @@ const avatarStorage = multer.diskStorage({
 const uploadVideo = multer({ 
     storage: storage,
     limits: {
-        fileSize: 100 * 1024 * 1024 // 100MB
+        fileSize: 500 * 1024 * 1024, // Увеличиваем до 500MB
+        files: 2 // Максимум 2 файла (видео и обложка)
     },
     fileFilter: (req, file, cb) => {
         if (file.fieldname === 'video' && file.mimetype.startsWith('video/')) {
@@ -102,10 +109,68 @@ const uploadAvatar = multer({
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
-app.use('/uploads', express.static('uploads'));
-app.use('/uploads/avatars', express.static(path.join(__dirname, 'public/uploads/avatars')));
+
+// Настройка статических файлов с правильными MIME-типами
+app.use('/uploads', (req, res, next) => {
+    const filePath = path.join(__dirname, 'public', req.path);
+    const ext = path.extname(filePath).toLowerCase();
+    
+    // Устанавливаем правильные MIME-типы для видео
+    const mimeTypes = {
+        '.mp4': 'video/mp4',
+        '.webm': 'video/webm',
+        '.ogg': 'video/ogg',
+        '.mov': 'video/quicktime',
+        '.avi': 'video/x-msvideo',
+        '.wmv': 'video/x-ms-wmv',
+        '.flv': 'video/x-flv',
+        '.mkv': 'video/x-matroska',
+        '.mpeg': 'video/mpeg',
+        '.mpg': 'video/mpeg'
+    };
+
+    if (mimeTypes[ext]) {
+        res.setHeader('Content-Type', mimeTypes[ext]);
+    }
+    
+    next();
+});
+
+app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 app.use('/uploads/videos', express.static(path.join(__dirname, 'public/uploads/videos')));
 app.use('/uploads/thumbnails', express.static(path.join(__dirname, 'public/uploads/thumbnails')));
+app.use('/uploads/avatars', express.static(path.join(__dirname, 'public/uploads/avatars')));
+
+// Middleware для конвертации видео в MP4 при необходимости
+app.use('/uploads/videos', async (req, res, next) => {
+    const filePath = path.join(__dirname, 'public', req.path);
+    const mp4Path = filePath.replace(/\.[^.]+$/, '.mp4');
+
+    // Если запрашивается не MP4 файл и MP4 версия не существует
+    if (!filePath.endsWith('.mp4') && !fs.existsSync(mp4Path)) {
+        try {
+            await new Promise((resolve, reject) => {
+                ffmpeg(filePath)
+                    .output(mp4Path)
+                    .videoCodec('libx264')
+                    .audioCodec('aac')
+                    .on('end', () => {
+                        console.log('Видео успешно конвертировано в MP4:', mp4Path);
+                        resolve();
+                    })
+                    .on('error', (err) => {
+                        console.error('Ошибка при конвертации видео:', err);
+                        reject(err);
+                    })
+                    .run();
+            });
+        } catch (error) {
+            console.error('Ошибка при конвертации видео:', error);
+            // Продолжаем обработку запроса, даже если конвертация не удалась
+        }
+    }
+    next();
+});
 
 // Подключение к базе данных
 db.connect((err) => {
@@ -139,6 +204,49 @@ db.query(createVideosTable, (err) => {
         console.error('Ошибка при создании таблицы videos:', err);
     } else {
         console.log('Таблица videos создана или уже существует');
+    }
+});
+
+// Создаем таблицу video_likes, если она не существует
+const createLikesTable = `
+    CREATE TABLE IF NOT EXISTS video_likes (
+        like_id INT AUTO_INCREMENT PRIMARY KEY,
+        video_id INT NOT NULL,
+        user_id INT NOT NULL,
+        like_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (video_id) REFERENCES videos(video_id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+        UNIQUE KEY unique_like (video_id, user_id)
+    )
+`;
+
+// Создаем таблицу video_dislikes, если она не существует
+const createDislikesTable = `
+    CREATE TABLE IF NOT EXISTS video_dislikes (
+        dislike_id INT AUTO_INCREMENT PRIMARY KEY,
+        video_id INT NOT NULL,
+        user_id INT NOT NULL,
+        dislike_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (video_id) REFERENCES videos(video_id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+        UNIQUE KEY unique_dislike (video_id, user_id)
+    )
+`;
+
+// Создаем таблицы при запуске сервера
+db.query(createLikesTable, (err) => {
+    if (err) {
+        console.error('Ошибка при создании таблицы video_likes:', err);
+    } else {
+        console.log('Таблица video_likes создана или уже существует');
+    }
+});
+
+db.query(createDislikesTable, (err) => {
+    if (err) {
+        console.error('Ошибка при создании таблицы video_dislikes:', err);
+    } else {
+        console.log('Таблица video_dislikes создана или уже существует');
     }
 });
 
@@ -316,10 +424,10 @@ app.post("/login", async (req, res) => {
         );
 
         res.status(200).json({
-            message: "Успешный вход",
-            user: {
+                message: "Успешный вход",
+                user: {
                 user_id: user.user_id,
-                username: user.username,
+                    username: user.username,
                 email: user.email,
                 profile_picture_url: user.profile_picture_url,
                 is_verified: user.is_verified,
@@ -405,7 +513,36 @@ app.post('/upload', uploadVideo.fields([{ name: 'video', maxCount: 1 }, { name: 
             });
         }
 
-        const videoUrl = `/uploads/videos/${videoFile.filename}`;
+        // Конвертируем видео в MP4 формат, если это не MP4
+        const inputPath = videoFile.path;
+        const outputPath = inputPath.replace(path.extname(inputPath), '.mp4');
+        
+        if (!inputPath.endsWith('.mp4')) {
+            try {
+                await new Promise((resolve, reject) => {
+                    ffmpeg(inputPath)
+                        .output(outputPath)
+                        .videoCodec('libx264')
+                        .audioCodec('aac')
+                        .on('end', () => {
+                            // Удаляем оригинальный файл
+                            fs.unlinkSync(inputPath);
+                            resolve();
+                        })
+                        .on('error', (err) => {
+                            console.error('Ошибка при конвертации видео:', err);
+                            reject(err);
+                        })
+                        .run();
+                });
+            } catch (error) {
+                console.error('Ошибка при конвертации видео:', error);
+                // Если конвертация не удалась, используем оригинальный файл
+                outputPath = inputPath;
+            }
+        }
+
+        const videoUrl = `/uploads/videos/${path.basename(outputPath)}`;
         const thumbnailUrl = `/uploads/thumbnails/${thumbnailFile.filename}`;
 
         console.log('Сохранение информации о видео в базу данных');
@@ -435,17 +572,83 @@ app.post('/upload', uploadVideo.fields([{ name: 'video', maxCount: 1 }, { name: 
 });
 
 // Обновление количества просмотров
-app.post('/api/videos/:id/view', (req, res) => {
-    const videoId = req.params.id;
-    const query = 'UPDATE videos SET views = views + 1 WHERE id = ?';
-    
-    db.query(query, [videoId], (err, results) => {
-        if (err) {
-            console.error('Ошибка при обновлении просмотров:', err);
-            return res.status(500).send('Ошибка при обновлении просмотров');
+app.post('/api/videos/:id/view', async (req, res) => {
+    try {
+        const videoId = req.params.id;
+        const userId = req.body.user_id; // Получаем ID пользователя из тела запроса
+
+        console.log('Увеличение счетчика просмотров для видео:', videoId, 'пользователем:', userId);
+
+        if (!userId) {
+            return res.status(400).json({ 
+                message: 'ID пользователя не указан',
+                error: 'USER_ID_REQUIRED'
+            });
         }
-        res.send('Просмотр засчитан');
-    });
+
+        // Проверяем существование пользователя
+        const [users] = await db.promise().query(
+            'SELECT user_id FROM users WHERE user_id = ?',
+            [userId]
+        );
+
+        if (users.length === 0) {
+            return res.status(404).json({ 
+                message: 'Пользователь не найден',
+                error: 'USER_NOT_FOUND'
+            });
+        }
+
+        // Проверяем существование видео
+        const [videos] = await db.promise().query(
+            'SELECT video_id FROM videos WHERE video_id = ?',
+            [videoId]
+        );
+
+        if (videos.length === 0) {
+            return res.status(404).json({ 
+                message: 'Видео не найдено',
+                error: 'VIDEO_NOT_FOUND'
+            });
+        }
+
+        // Проверяем, не просматривал ли пользователь это видео в последние 24 часа
+        const [recentViews] = await db.promise().query(
+            'SELECT view_id FROM video_views WHERE user_id = ? AND video_id = ? AND view_date > DATE_SUB(NOW(), INTERVAL 24 HOUR)',
+            [userId, videoId]
+        );
+
+        if (recentViews.length === 0) {
+            // Добавляем запись о просмотре
+            await db.promise().query(
+                'INSERT INTO video_views (user_id, video_id, view_date) VALUES (?, ?, NOW())',
+                [userId, videoId]
+            );
+
+            // Увеличиваем общий счетчик просмотров
+            await db.promise().query(
+                'UPDATE videos SET views = views + 1 WHERE video_id = ?',
+                [videoId]
+            );
+
+            console.log('Просмотр зарегистрирован для пользователя:', userId);
+        } else {
+            console.log('Просмотр уже зарегистрирован в последние 24 часа');
+        }
+
+        res.json({ 
+            message: 'Просмотр зарегистрирован',
+            viewCount: recentViews.length === 0 ? 1 : 0
+        });
+
+    } catch (error) {
+        console.error('Ошибка при регистрации просмотра:', error);
+        res.status(500).json({ 
+            message: 'Ошибка при регистрации просмотра',
+            error: error.message,
+            code: error.code
+        });
+    }
 });
 
 // Временный маршрут для диагностики
@@ -557,6 +760,354 @@ app.get('/debug/videos', async (req, res) => {
             videos: videos
         });
     } catch (error) {
+        res.status(500).json({
+            error: error.message,
+            stack: error.stack
+        });
+    }
+});
+
+// Маршрут для получения информации о видео
+app.get('/api/videos/:id', async (req, res) => {
+    try {
+        const videoId = req.params.id;
+        console.log('Получен запрос на получение видео:', videoId);
+
+        // Получаем информацию о видео и канале
+        const [videos] = await db.promise().query(`
+            SELECT 
+                v.*,
+                c.channel_name,
+                c.channel_id,
+                u.username as uploader_name,
+                u.profile_picture_url as channel_avatar
+            FROM videos v
+            LEFT JOIN channels c ON v.channel_id = c.channel_id
+            LEFT JOIN users u ON v.user_id = u.user_id
+            WHERE v.video_id = ?
+        `, [videoId]);
+
+        if (videos.length === 0) {
+            console.log('Видео не найдено:', videoId);
+            return res.status(404).json({ 
+                message: 'Видео не найдено',
+                error: 'VIDEO_NOT_FOUND'
+            });
+        }
+
+        const video = videos[0];
+        console.log('Найдено видео:', video);
+
+        // Проверяем существование файла видео
+        const videoPath = path.join(__dirname, 'public', video.video_url);
+        const mp4Path = videoPath.replace(/\.[^.]+$/, '.mp4');
+
+        // Если MP4 версия существует, используем её
+        if (fs.existsSync(mp4Path)) {
+            video.video_url = video.video_url.replace(/\.[^.]+$/, '.mp4');
+        }
+
+        res.json({
+            video_id: video.video_id,
+            title: video.title,
+            description: video.description,
+            video_url: video.video_url,
+            thumbnail_url: video.thumbnail_url,
+            upload_date: video.upload_date,
+            views: video.views,
+            channel_id: video.channel_id,
+            channel_name: video.channel_name,
+            channel_avatar: video.channel_avatar || '/images/default-avatar.png',
+            uploader_name: video.uploader_name
+        });
+
+    } catch (error) {
+        console.error('Ошибка при получении видео:', error);
+        res.status(500).json({ 
+            message: 'Ошибка при получении видео',
+            error: error.message,
+            code: error.code
+        });
+    }
+});
+
+// Маршрут для получения рейтинга видео
+app.get('/api/videos/:id/ratings', async (req, res) => {
+    try {
+        const videoId = req.params.id;
+        const userId = req.query.user_id;
+
+        // Получаем количество лайков и дизлайков
+        const [likes] = await db.promise().query(
+            'SELECT COUNT(*) as count FROM video_likes WHERE video_id = ?',
+            [videoId]
+        );
+
+        const [dislikes] = await db.promise().query(
+            'SELECT COUNT(*) as count FROM video_dislikes WHERE video_id = ?',
+            [videoId]
+        );
+
+        // Проверяем, поставил ли пользователь лайк или дизлайк
+        let userRating = null;
+        if (userId) {
+            const [userLike] = await db.promise().query(
+                'SELECT 1 FROM video_likes WHERE video_id = ? AND user_id = ?',
+                [videoId, userId]
+            );
+
+            const [userDislike] = await db.promise().query(
+                'SELECT 1 FROM video_dislikes WHERE video_id = ? AND user_id = ?',
+                [videoId, userId]
+            );
+
+            if (userLike.length > 0) {
+                userRating = 'like';
+            } else if (userDislike.length > 0) {
+                userRating = 'dislike';
+            }
+        }
+
+        res.json({
+            likes: likes[0].count,
+            dislikes: dislikes[0].count,
+            userRating: userRating
+        });
+
+    } catch (error) {
+        console.error('Ошибка при получении рейтинга:', error);
+        res.status(500).json({ 
+            message: 'Ошибка при получении рейтинга',
+            error: error.message
+        });
+    }
+});
+
+// Маршрут для постановки лайка
+app.post('/api/videos/:id/like', async (req, res) => {
+    try {
+        const videoId = req.params.id;
+        const userId = req.body.user_id;
+
+        if (!userId) {
+            return res.status(400).json({ 
+                message: 'ID пользователя не указан',
+                error: 'USER_ID_REQUIRED'
+            });
+        }
+
+        // Проверяем существование пользователя и видео
+        const [users] = await db.promise().query(
+            'SELECT user_id FROM users WHERE user_id = ?',
+            [userId]
+        );
+
+        if (users.length === 0) {
+            return res.status(404).json({ 
+                message: 'Пользователь не найден',
+                error: 'USER_NOT_FOUND'
+            });
+        }
+
+        const [videos] = await db.promise().query(
+            'SELECT video_id FROM videos WHERE video_id = ?',
+            [videoId]
+        );
+
+        if (videos.length === 0) {
+            return res.status(404).json({ 
+                message: 'Видео не найдено',
+                error: 'VIDEO_NOT_FOUND'
+            });
+        }
+
+        // Проверяем, не поставил ли пользователь уже лайк
+        const [existingLikes] = await db.promise().query(
+            'SELECT like_id FROM video_likes WHERE video_id = ? AND user_id = ?',
+            [videoId, userId]
+        );
+
+        if (existingLikes.length > 0) {
+            // Если лайк уже существует, удаляем его
+            await db.promise().query(
+                'DELETE FROM video_likes WHERE video_id = ? AND user_id = ?',
+                [videoId, userId]
+            );
+            return res.json({ 
+                message: 'Лайк удален',
+                action: 'unlike'
+            });
+        }
+
+        // Проверяем, не поставил ли пользователь дизлайк
+        const [existingDislikes] = await db.promise().query(
+            'SELECT dislike_id FROM video_dislikes WHERE video_id = ? AND user_id = ?',
+            [videoId, userId]
+        );
+
+        // Если есть дизлайк, удаляем его
+        if (existingDislikes.length > 0) {
+            await db.promise().query(
+                'DELETE FROM video_dislikes WHERE video_id = ? AND user_id = ?',
+                [videoId, userId]
+            );
+        }
+
+        // Добавляем лайк
+        await db.promise().query(
+            'INSERT INTO video_likes (video_id, user_id, like_date) VALUES (?, ?, NOW())',
+            [videoId, userId]
+        );
+
+        res.json({ 
+            message: 'Лайк успешно поставлен',
+            action: 'like'
+        });
+
+    } catch (error) {
+        console.error('Ошибка при постановке лайка:', error);
+        res.status(500).json({ 
+            message: 'Ошибка при постановке лайка',
+            error: error.message
+        });
+    }
+});
+
+// Маршрут для постановки дизлайка
+app.post('/api/videos/:id/dislike', async (req, res) => {
+    try {
+        const videoId = req.params.id;
+        const userId = req.body.user_id;
+
+        if (!userId) {
+            return res.status(400).json({ 
+                message: 'ID пользователя не указан',
+                error: 'USER_ID_REQUIRED'
+            });
+        }
+
+        // Проверяем существование пользователя и видео
+        const [users] = await db.promise().query(
+            'SELECT user_id FROM users WHERE user_id = ?',
+            [userId]
+        );
+
+        if (users.length === 0) {
+            return res.status(404).json({ 
+                message: 'Пользователь не найден',
+                error: 'USER_NOT_FOUND'
+            });
+        }
+
+        const [videos] = await db.promise().query(
+            'SELECT video_id FROM videos WHERE video_id = ?',
+            [videoId]
+        );
+
+        if (videos.length === 0) {
+            return res.status(404).json({ 
+                message: 'Видео не найдено',
+                error: 'VIDEO_NOT_FOUND'
+            });
+        }
+
+        // Проверяем, не поставил ли пользователь уже дизлайк
+        const [existingDislikes] = await db.promise().query(
+            'SELECT dislike_id FROM video_dislikes WHERE video_id = ? AND user_id = ?',
+            [videoId, userId]
+        );
+
+        if (existingDislikes.length > 0) {
+            return res.status(400).json({ 
+                message: 'Дизлайк уже поставлен',
+                error: 'DISLIKE_ALREADY_EXISTS'
+            });
+        }
+
+        // Проверяем, не поставил ли пользователь лайк
+        const [existingLikes] = await db.promise().query(
+            'SELECT like_id FROM video_likes WHERE video_id = ? AND user_id = ?',
+            [videoId, userId]
+        );
+
+        // Если есть лайк, удаляем его
+        if (existingLikes.length > 0) {
+            await db.promise().query(
+                'DELETE FROM video_likes WHERE video_id = ? AND user_id = ?',
+                [videoId, userId]
+            );
+        }
+
+        // Добавляем дизлайк
+        await db.promise().query(
+            'INSERT INTO video_dislikes (video_id, user_id, dislike_date) VALUES (?, ?, NOW())',
+            [videoId, userId]
+        );
+
+        res.json({ 
+            message: 'Дизлайк успешно поставлен',
+            action: 'dislike'
+        });
+
+    } catch (error) {
+        console.error('Ошибка при постановке дизлайка:', error);
+        res.status(500).json({ 
+            message: 'Ошибка при постановке дизлайка',
+            error: error.message
+        });
+    }
+});
+
+// Маршрут для проверки структуры базы данных
+app.get('/debug/db', async (req, res) => {
+    try {
+        // Получаем список всех таблиц
+        const [tables] = await db.promise().query('SHOW TABLES');
+        
+        // Получаем структуру каждой таблицы
+        const tableStructures = {};
+        for (const table of tables) {
+            const tableName = table[Object.keys(table)[0]];
+            const [structure] = await db.promise().query(`DESCRIBE ${tableName}`);
+            tableStructures[tableName] = structure;
+        }
+        
+        res.json({
+            tables: tables,
+            structures: tableStructures
+        });
+    } catch (error) {
+        console.error('Ошибка при проверке структуры базы данных:', error);
+        res.status(500).json({
+            error: error.message,
+            stack: error.stack
+        });
+    }
+});
+
+// Маршрут для отладки лайков и дизлайков
+app.get('/debug/ratings/:videoId', async (req, res) => {
+    try {
+        const videoId = req.params.videoId;
+
+        // Получаем все лайки для видео
+        const [likes] = await db.promise().query(
+            'SELECT * FROM video_likes WHERE video_id = ?',
+            [videoId]
+        );
+
+        // Получаем все дизлайки для видео
+        const [dislikes] = await db.promise().query(
+            'SELECT * FROM video_dislikes WHERE video_id = ?',
+            [videoId]
+        );
+
+        res.json({
+            likes: likes,
+            dislikes: dislikes
+        });
+    } catch (error) {
+        console.error('Ошибка при получении отладочной информации:', error);
         res.status(500).json({
             error: error.message,
             stack: error.stack

@@ -43,8 +43,12 @@
             <div class="video-details">
                 <h1 id="videoTitle"></h1>
                 <p id="videoUploader"></p>
-                <button id="likeButton">👍</button>
-                <span id="likesCount">0</span> лайков
+                <div class="rating-buttons">
+                    <button id="likeButton">👍</button>
+                    <span id="likeCount">0</span> лайков
+                    <button id="dislikeButton">👎</button>
+                    <span id="dislikeCount">0</span> дизлайков
+                </div>
             </div>
             <div class="comments-section">
                 <h3>Комментарии</h3>
@@ -63,6 +67,7 @@
 
     <script type="module" src="js/main_script.js"></script>
     <script type="module" src="js/video_page.js"></script>
+    <script type="module" src="js/script.js"></script>
 </body>
 
 </html>

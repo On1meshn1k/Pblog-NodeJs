@@ -1,42 +1,41 @@
-const username = document.getElementById('username');
-const logout = document.getElementById('logout');
-const enter = document.querySelector('.auth');
-const user = auth.currentUser;
+document.addEventListener('DOMContentLoaded', () => {
+    // Получаем элементы страницы
+    const username = document.getElementById('username');
+    const upload = document.getElementById('upload');
+    const logout = document.getElementById('logout');
+    const enter = document.querySelector('.auth');
 
-auth.onAuthStateChanged(function(user) {
-  if(user) {
-    username.style.display = "block"
-    upload.style.display = "block"
-    logout.style.display = "block"
-    enter.style.display = "none"
+    // Проверяем авторизацию
+    const user = JSON.parse(localStorage.getItem('user'));
 
-    const userId = user.uid;
-    const usernameRef = ref(db, "users/" + userId + "/username");
+    // Обновляем UI в зависимости от авторизации
+    if (user) {
+        if (username) username.style.display = "block";
+        if (upload) upload.style.display = "block";
+        if (logout) logout.style.display = "block";
+        if (enter) enter.style.display = "none";
+        if (username) username.innerText = user.username;
+    } else {
+        if (username) username.style.display = "none";
+        if (upload) upload.style.display = "none";
+        if (logout) logout.style.display = "none";
+        if (enter) enter.style.display = "block";
+    }
 
-    get(usernameRef).then((snapshot) => {
-      if (snapshot.exists()) {
-        const usernameValue = snapshot.val();
-        username.innerText = usernameValue;
-      } else {
-        alert('данные об имени пользователя не найдены')
-      }
-    }).catch((error) => {
-      alert("Ошибка при получении имени пользователя" + error);
-  })
-  }
-})
+    // Обработчик выхода
+    if (logout) {
+        logout.addEventListener('click', () => {
+            localStorage.removeItem('user');
+            window.location.href = 'enter.html';
+        });
+    }
 
-logout.addEventListener('click', function() {
-  auth.signOut().then(function() {
-    alert('Вы вышли из аккаунта');
-
-    username.style.display = "none"
-    upload.style.display = "none"
-    logout.style.display = "none"
-    enter.style.display = "block"
-  }) .catch(function(error) {
-    alert.error('Ошибка при выходе из аккаунта', error);
-  });
+    // Обработчик входа
+    if (enter) {
+        enter.addEventListener('click', () => {
+            window.location.href = 'enter.html';
+        });
+    }
 });
 
 // Загрузка видео
