@@ -1,48 +1,89 @@
-document.getElementById('uploadForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const formData = new FormData();
-    const fileInput = document.getElementById('fileInput');
-    const thumbnailInput = document.getElementById('thumbnailInput');
-    const videoTitle = document.getElementById('videoTitleInput').value;
-    const videoDescription = document.getElementById('videoDescriptionInput').value;
-    
-    if (!fileInput.files[0] || !thumbnailInput.files[0] || !videoTitle || !videoDescription) {
-        alert('Пожалуйста, заполните все поля и выберите файлы');
+document.addEventListener('DOMContentLoaded', () => {
+    // Проверяем авторизацию пользователя
+    const user = JSON.parse(localStorage.getItem('user'));
+    if (!user) {
+        window.location.href = 'enter.html';
         return;
     }
-    
-    formData.append('video', fileInput.files[0]);
-    formData.append('thumbnail', thumbnailInput.files[0]);
-    formData.append('title', videoTitle);
-    formData.append('description', videoDescription);
 
-    const uploadProgress = document.getElementById('uploadProgress');
-    const uploadMessage = document.getElementById('uploadMessage');
-    uploadMessage.innerText = 'Загрузка...';
+    const uploadForm = document.getElementById('uploadForm');
+    const videoInput = document.getElementById('videoInput');
+    const thumbnailInput = document.getElementById('thumbnailInput');
+    const titleInput = document.getElementById('titleInput');
+    const descriptionInput = document.getElementById('descriptionInput');
+    const submitButton = document.getElementById('submitButton');
+    const errorMessage = document.getElementById('errorMessage');
+    const successMessage = document.getElementById('successMessage');
 
-    try {
-        const response = await fetch('/upload', {
-            method: 'POST',
-            body: formData
-        });
+    let isSubmitting = false;
 
-        const result = await response.text();
-        
-        if (response.ok) {
-            uploadMessage.innerText = 'Видео успешно загружено!';
+    uploadForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        if (isSubmitting) return;
+        isSubmitting = true;
+
+        // Отключаем кнопку и показываем индикатор загрузки
+        submitButton.disabled = true;
+        submitButton.textContent = 'Загрузка...';
+
+        try {
+            const formData = new FormData();
+            formData.append('video', videoInput.files[0]);
+            formData.append('thumbnail', thumbnailInput.files[0]);
+            formData.append('title', titleInput.value);
+            formData.append('description', descriptionInput.value);
+            formData.append('user_id', user.user_id);
+
+            console.log('Отправка данных:', {
+                title: titleInput.value,
+                description: descriptionInput.value,
+                user_id: user.user_id,
+                video: videoInput.files[0]?.name,
+                thumbnail: thumbnailInput.files[0]?.name
+            });
+
+            const response = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            const contentType = response.headers.get('content-type');
+            let result;
+            
+            if (contentType && contentType.includes('application/json')) {
+                result = await response.json();
+            } else {
+                const text = await response.text();
+                result = { message: text };
+            }
+
+            if (!response.ok) {
+                throw new Error(result.message || 'Ошибка при загрузке видео');
+            }
+
+            successMessage.textContent = result.message;
+            successMessage.style.display = 'block';
+            errorMessage.style.display = 'none';
+
+            // Очищаем форму
+            uploadForm.reset();
+
+            // Перенаправляем на страницу видео через 2 секунды
             setTimeout(() => {
-                window.location.href = '/';
+                window.location.href = `/video.html?id=${result.videoId}`;
             }, 2000);
-        } else {
-            uploadMessage.innerText = `Ошибка: ${result}`;
-        }
-    } catch (error) {
-        console.error('Ошибка:', error);
-        uploadMessage.innerText = 'Ошибка при загрузке видео: ' + error.message;
-    }
-});
 
-document.getElementById('previous_page').addEventListener('click', function() {
-    window.location.href = 'index.html';
+        } catch (error) {
+            console.error('Ошибка при загрузке видео:', error);
+            errorMessage.textContent = error.message;
+            errorMessage.style.display = 'block';
+            successMessage.style.display = 'none';
+        } finally {
+            // Включаем кнопку обратно
+            submitButton.disabled = false;
+            submitButton.textContent = 'Загрузить видео';
+            isSubmitting = false;
+        }
+    });
 });

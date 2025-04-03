@@ -11,30 +11,32 @@ document.addEventListener("DOMContentLoaded", function() { // Убедимся, 
         return;
     }
 
-    const isLoggedIn = localStorage.getItem("user"); // Получаем данные из localStorage
+    // Проверяем авторизацию пользователя
+    const user = JSON.parse(localStorage.getItem('user'));
 
-    if (isLoggedIn) {
-        try {
-            const user = JSON.parse(isLoggedIn); // Преобразуем строку JSON обратно в объект
+    if (user) {
+        // Пользователь авторизован
+        usernameSpan.textContent = user.username;
+        authLink.style.display = "none";
+        uploadButton.style.display = "block";
+        logoutButton.style.display = "block";
+        usernameSpan.style.display = "block";
 
-            // Отображаем имя пользователя и скрываем кнопки входа/регистрации
-            usernameSpan.textContent = user.username;
-            authLink.style.display = "none"; // Скрыть кнопку "Войти"
-            uploadButton.style.display = "block"; // Показать кнопку загрузки видео
-            logoutButton.style.display = "block"; // Показать кнопку выхода
-            usernameSpan.style.display = "block"; // Показать имя пользователя
+        // Обработчик для кнопки загрузки видео
+        uploadButton.addEventListener('click', function() {
+            window.location.href = 'upload_video.html';
+        });
 
-            logoutButton.addEventListener("click", () => {
-                localStorage.removeItem("user"); // Удалить данные при выходе
-                window.location.reload(); // Перезагружаем страницу
-            });
-        } catch (error) {
-            console.error("Ошибка при парсинге данных пользователя:", error);
-        }
+        // Обработчик для кнопки выхода
+        logoutButton.addEventListener('click', function() {
+            localStorage.removeItem('user');
+            window.location.reload();
+        });
     } else {
-        // Если пользователь не авторизован
-        usernameSpan.style.display = "none"; // Скрыть имя пользователя
-        uploadButton.style.display = "none"; // Скрыть кнопку загрузки
-        logoutButton.style.display = "none"; // Скрыть кнопку выхода
+        // Пользователь не авторизован
+        usernameSpan.style.display = "none";
+        uploadButton.style.display = "none";
+        logoutButton.style.display = "none";
+        authLink.style.display = "block";
     }
 });

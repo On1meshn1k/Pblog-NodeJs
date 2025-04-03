@@ -4,23 +4,46 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Загрузка видео</title>
-  <link rel="stylesheet" href="css/upload_video.css" type="text/css">
+  <title>Загрузка видео - Pblog</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/upload_video.css">
 </head>
 
 <body>
-  <div class="upload-container">
-    <h2>Загрузить видео</h2>
-    <form id="uploadForm" enctype="multipart/form-data">
-      <input type="file" accept="video/*" id="fileInput" name="video" required>
-      <input type="text" id="videoTitleInput" name="title" placeholder="Введите название видео" required>
-      <input type="text" id="videoDescriptionInput" name="description" placeholder="Введите описание видео" required>
-      <input type="file" accept="image/*" id="thumbnailInput" name="thumbnail" placeholder="Выберите обложку" required>
-      <button type="submit" id="uploadButton">Загрузить</button>
-      <button type="button" id="previous_page">На главную</button>
-    </form>
-    <progress value="0" max="100" id="uploadProgress"></progress>
-    <p id="uploadMessage"></p>
+  <div class="container">
+    <header>
+      <h1>Загрузка видео</h1>
+      <a href="index.html" class="back-button">На главную</a>
+    </header>
+
+    <main>
+      <form id="uploadForm" class="upload-form">
+        <div class="form-group">
+          <label for="videoInput">Выберите видео (макс. 100MB)</label>
+          <input type="file" id="videoInput" name="video" accept="video/*" required>
+        </div>
+
+        <div class="form-group">
+          <label for="thumbnailInput">Выберите обложку (макс. 5MB)</label>
+          <input type="file" id="thumbnailInput" name="thumbnail" accept="image/*" required>
+        </div>
+
+        <div class="form-group">
+          <label for="titleInput">Название видео</label>
+          <input type="text" id="titleInput" name="title" required>
+        </div>
+
+        <div class="form-group">
+          <label for="descriptionInput">Описание</label>
+          <textarea id="descriptionInput" name="description" required></textarea>
+        </div>
+
+        <div id="errorMessage" class="error-message" style="display: none;"></div>
+        <div id="successMessage" class="success-message" style="display: none;"></div>
+
+        <button type="submit" id="submitButton" class="submit-button">Загрузить видео</button>
+      </form>
+    </main>
   </div>
 
   <script src="js/upload_video.js"></script>
