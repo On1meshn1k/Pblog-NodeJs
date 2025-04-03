@@ -25,9 +25,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const channelAvatar = document.getElementById('channelAvatar');
     const channelLink = document.getElementById('channelLink');
     const errorMessage = document.getElementById('errorMessage');
-    const username = document.getElementById('username');
-    const upload = document.getElementById('upload');
-    const logout = document.getElementById('logout');
+const username = document.getElementById('username');
+const upload = document.getElementById('upload');
+const logout = document.getElementById('logout');
     const enter = document.querySelector('.auth');
     const likeButton = document.getElementById('likeButton');
     const dislikeButton = document.getElementById('dislikeButton');
@@ -209,9 +209,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     errorMessage.textContent = error.message;
                     errorMessage.style.display = 'block';
                 }
-            }
-        });
-    }
+        }
+    });
+}
 
     // Загружаем информацию о видео
     const loadVideo = async () => {
@@ -219,8 +219,12 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('Загрузка информации о видео:', videoId);
             const response = await fetch(`/api/videos/${videoId}`);
             
-            if (!response.ok) {
+            if (response.status === 404) {
                 throw new Error('Видео не найдено');
+            }
+            
+            if (!response.ok) {
+                throw new Error('Ошибка при загрузке видео');
             }
 
             const video = await response.json();
@@ -264,7 +268,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     throw new Error('Браузер не поддерживает формат видео. Пожалуйста, используйте современный браузер.');
                 }
-            } else {
+    } else {
                 videoPlayer.src = video.video_url;
                 videoPlayer.type = mimeType;
             }

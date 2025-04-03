@@ -8,6 +8,8 @@
     <link rel="stylesheet" href="css/style.css" type="text/css">
     <script src="js/auth.js" defer></script>
     <script src="js/script.js" defer></script>
+    <script src="js/main_script.js" defer></script>
+    <script src="js/channel_manager.js" defer></script>
 <!--    <script src="js/auth.js" defer></script>-->
     <title>PBlog</title>
 </head>
@@ -26,6 +28,12 @@
             </div>
         </div>
         <div class="nav-right flex-div">
+            <div class="channel-selector">
+                <select id="channelSelect" class="channel-select">
+                    <option value="">Выберите канал</option>
+                    <option value="create">+ Создать новый канал</option>
+                </select>
+            </div>
             <img src="images/upload.png" class="upload" id="upload">
             <span class="username" id="username"></span>
             <button class="logout" id="logout">Выйти</button>
@@ -43,7 +51,7 @@
                 <p>Мой канал</p>
             </a>
             <a href=""><img src="images/library.png">
-                <p>Библиотека</p>
+                <p>История</p>
             </a>
             <hr>
         </div>
@@ -54,8 +62,9 @@
 
     <!-- main -->
 
-    <div class="container">
-        <div class="list-container" id="videoList">
+    <div class="container main-content">
+        <div class="video-container" id="videoList">
+            <!-- Видео будут добавляться динамически -->
         </div>
     </div>
 

@@ -194,8 +194,8 @@ const createVideosTable = `
         upload_date DATETIME NOT NULL,
         views INT DEFAULT 0,
         duration INT DEFAULT 0,
-        FOREIGN KEY (user_id) REFERENCES users(user_id),
-        FOREIGN KEY (channel_id) REFERENCES channels(channel_id)
+        FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+        FOREIGN KEY (channel_id) REFERENCES channels(channel_id) ON DELETE CASCADE
     )
 `;
 
@@ -250,6 +250,25 @@ db.query(createDislikesTable, (err) => {
     }
 });
 
+// Создание таблицы каналов
+const createChannelsTable = `
+CREATE TABLE IF NOT EXISTS channels (
+    channel_id INT PRIMARY KEY AUTO_INCREMENT,
+    channel_name VARCHAR(255) NOT NULL,
+    user_id INT NOT NULL,
+    created_at DATETIME NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(user_id),
+    UNIQUE KEY unique_channel_name_per_user (channel_name, user_id)
+)`;
+
+db.query(createChannelsTable, (err) => {
+    if (err) {
+        console.error('Ошибка при создании таблицы channels:', err);
+    } else {
+        console.log('Таблица channels успешно создана или уже существует');
+    }
+});
+
 // Главная страница
 app.get("/", (req, res) => {
     res.sendFile(path.join(__dirname, "public", "index.html"));
@@ -257,6 +276,7 @@ app.get("/", (req, res) => {
 
 // Роут для получения списка видео
 app.get("/api/videos", (req, res) => {
+    console.log('Получен запрос на список видео');
     const query = `
         SELECT 
             v.video_id,
@@ -274,11 +294,25 @@ app.get("/api/videos", (req, res) => {
         ORDER BY v.upload_date DESC
     `;
 
+    console.log('Выполняется SQL запрос:', query);
+
     db.query(query, (err, results) => {
         if (err) {
-            console.error('Ошибка при получении видео:', err);
-            return res.status(500).send('Ошибка при получении списка видео');
+            console.error('Ошибка при получении видео:', {
+                message: err.message,
+                code: err.code,
+                sqlMessage: err.sqlMessage,
+                sqlState: err.sqlState,
+                stack: err.stack
+            });
+            return res.status(500).json({ 
+                error: 'Ошибка при получении списка видео',
+                details: err.message,
+                code: err.code,
+                sqlMessage: err.sqlMessage
+            });
         }
+        console.log('Успешно получено видео:', results.length);
         res.json(results);
     });
 });
@@ -1115,7 +1149,88 @@ app.get('/debug/ratings/:videoId', async (req, res) => {
     }
 });
 
+// Получение видео пользователя
+app.get('/api/users/:userId/videos', async (req, res) => {
+    try {
+        const userId = req.params.userId;
+        
+        // Проверяем существование пользователя
+        const [user] = await db.promise().query('SELECT * FROM users WHERE user_id = ?', [userId]);
+        if (user.length === 0) {
+            return res.status(404).json({ error: 'Пользователь не найден' });
+        }
+
+        // Получаем видео пользователя
+        const [videos] = await db.promise().query(`
+            SELECT v.*, u.username as uploader_name 
+            FROM videos v 
+            JOIN users u ON v.user_id = u.user_id 
+            WHERE v.user_id = ? 
+            ORDER BY v.upload_date DESC
+        `, [userId]);
+
+        res.json(videos);
+    } catch (error) {
+        console.error('Ошибка при получении видео пользователя:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// Получение каналов пользователя
+app.get('/api/users/:userId/channels', async (req, res) => {
+    try {
+        const userId = req.params.userId;
+        
+        // Проверяем существование пользователя
+        const [user] = await db.promise().query('SELECT * FROM users WHERE user_id = ?', [userId]);
+        if (user.length === 0) {
+            return res.status(404).json({ error: 'Пользователь не найден' });
+        }
+
+        // Получаем каналы пользователя
+        const [channels] = await db.promise().query(`
+            SELECT * FROM channels 
+            WHERE user_id = ? 
+            ORDER BY created_at DESC
+        `, [userId]);
+
+        res.json(channels);
+    } catch (error) {
+        console.error('Ошибка при получении каналов:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// Создание нового канала
+app.post('/api/channels', async (req, res) => {
+    try {
+        const { name, user_id } = req.body;
+
+        // Проверяем существование пользователя
+        const [user] = await db.promise().query('SELECT * FROM users WHERE user_id = ?', [user_id]);
+        if (user.length === 0) {
+            return res.status(404).json({ error: 'Пользователь не найден' });
+        }
+
+        // Создаем новый канал
+        const [result] = await db.promise().query(`
+            INSERT INTO channels (channel_name, user_id, created_at) 
+            VALUES (?, ?, NOW())
+        `, [name, user_id]);
+
+        const [newChannel] = await db.promise().query(`
+            SELECT * FROM channels 
+            WHERE channel_id = ?
+        `, [result.insertId]);
+
+        res.status(201).json(newChannel[0]);
+    } catch (error) {
+        console.error('Ошибка при создании канала:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
 // Запуск сервера
 app.listen(PORT, () => {
-    console.log(`Сервер запущен на порту ${PORT}`);
+    console.log(`Сервер запущен на сервере http://localhost:${PORT}`);
 });
