@@ -2,92 +2,104 @@
 const usernameInput = document.getElementById('username');
 const avatarInput = document.getElementById('avatar');
 const submit = document.getElementById("submit");
+const backButton = document.getElementById('previous_page');
 
-// Слушаем событие отправки формы
-submit.addEventListener('click', function (event) {
-  const newUsername = usernameInput.value;
-  // Получаем текущие значения email и password из базы данных
-  const user = auth.currentUser;
-  auth.onAuthStateChanged(function (user) {
-
-    if (user) {
-      const userId = user.uid;
-      const userRef = ref(db, 'users/' + userId);
-
-      get(userRef)
-        .then((snapshot) => {
-          const userData = snapshot.val();
-          const userEmail = userData.email;
-          const userPassword = userData.password;
-
-          // Обновляем данные пользователя в базе данных, включая новое имя пользователя, но оставляем email и password без изменений
-          set(userRef, {
-            username: newUsername,
-            email: userEmail, // Используем текущее значение email
-            password: userPassword // Используем текущее значение password
-          })
-            .then(() => {
-              alert('Данные успешно сохранены');
-            })
-            .catch((error) => {
-              alert('Ошибка при сохранении данных пользователя: ' + error.message);
-            });
-        })
-        .catch((error) => {
-          alert('Ошибка при получении данных пользователя: ' + error.message);
-        });
-    } else {
-      alert('Пользователь не аутентифицирован');
+// Загружаем текущие данные пользователя при открытии страницы
+document.addEventListener('DOMContentLoaded', async () => {
+    const userData = localStorage.getItem('user');
+    if (!userData) {
+        alert('Пользователь не авторизован');
+        window.location.href = 'enter.html';
+        return;
     }
-  })
+
+    try {
+        const user = JSON.parse(userData);
+        usernameInput.value = user.username;
+    } catch (error) {
+        console.error('Ошибка при загрузке данных пользователя:', error);
+    }
 });
 
-// Загрузка фото профиля
+// Обработка загрузки аватарки
+avatarInput.addEventListener('change', async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
 
-avatarInput.addEventListener('change', function (event) {
-  const file = event.target.files[0];
-  const newUsername = usernameInput.value;
-  const user = auth.currentUser;
+    // Проверяем размер файла (максимум 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+        alert('Размер файла не должен превышать 5MB');
+        event.target.value = '';
+        return;
+    }
 
-  if (user) {
-    const userId = user.uid;
-    const avatarStorageRef = storageRef(storage, `avatars/${userId}/avatar.jpg`);
-
-    uploadBytes(avatarStorageRef, file)
-      .then((snapshot) => {
-        return getDownloadURL(snapshot.ref);
-      })
-      .then((downloadURL) => {
-        const userRef = ref(db, `users/${userId}`);
-
-        get(userRef)
-          .then((snapshot) => {
-            const userData = snapshot.val();
-            const userEmail = userData.email;
-            const userPassword = userData.password;
-            return userRef.set({
-              username: newUsername,
-              email: userEmail, // Используем текущее значение email
-              password: userPassword, // Используем текущее значение password
-              avatarURL: downloadURL
-            })
-          });
-      })
-      .then(() => {
-        alert("Фото профиля успешно обновлено");
-      })
-      .catch((error) => {
-        alert("Ошибка обновления фото профиля: " + error.message);
-      });
-  } else {
-    alert("Пользователь не аутентифицирован");
-  }
+    // Проверяем тип файла
+    if (!file.type.startsWith('image/')) {
+        alert('Пожалуйста, выберите изображение');
+        event.target.value = '';
+        return;
+    }
 });
 
-// Переход на главную страницу
+// Обработка отправки формы
+submit.addEventListener('click', async (event) => {
+    event.preventDefault();
 
-const back = document.getElementById('previous_page');
+    const userData = localStorage.getItem('user');
+    if (!userData) {
+        alert('Пользователь не авторизован');
+        window.location.href = 'enter.html';
+        return;
+    }
 
-back.addEventListener('click', function () {
-  window.location.href = 'index.html';
-})
+    try {
+        const user = JSON.parse(userData);
+        const newUsername = usernameInput.value.trim();
+        const avatarFile = avatarInput.files[0];
+
+        if (!newUsername) {
+            alert('Пожалуйста, введите имя пользователя');
+            return;
+        }
+
+        // Создаем FormData для отправки файла и данных
+        const formData = new FormData();
+        formData.append('username', newUsername);
+        formData.append('user_id', user.user_id);
+        if (avatarFile) {
+            formData.append('avatar', avatarFile);
+        }
+
+        // Отправляем запрос на сервер
+        const response = await fetch('/api/update-profile', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Ошибка при обновлении профиля');
+        }
+
+        const result = await response.json();
+        
+        // Обновляем данные в localStorage
+        const updatedUser = {
+            ...user,
+            username: newUsername,
+            profile_picture_url: result.profile_picture_url || user.profile_picture_url
+        };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+
+        alert('Профиль успешно обновлен');
+        window.location.href = 'channel.html';
+    } catch (error) {
+        console.error('Ошибка при обновлении профиля:', error);
+        alert(error.message);
+    }
+});
+
+// Обработка кнопки "На главную"
+backButton.addEventListener('click', () => {
+    window.location.href = 'channel.html';
+});

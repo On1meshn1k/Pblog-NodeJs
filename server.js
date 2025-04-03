@@ -25,6 +25,7 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 app.use('/uploads', express.static('uploads'));
+app.use('/uploads/avatars', express.static(path.join(__dirname, 'public/uploads/avatars')));
 
 // Подключение к базе данных
 db.connect((err) => {
@@ -250,7 +251,7 @@ const authenticateToken = (req, res, next) => {
 // Настройка multer для загрузки файлов
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, 'uploads/');
+        cb(null, 'public/uploads/avatars/');
     },
     filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -261,7 +262,14 @@ const storage = multer.diskStorage({
 const upload = multer({ 
     storage: storage,
     limits: {
-        fileSize: 100 * 1024 * 1024 // ограничение размера файла (100MB)
+        fileSize: 5 * 1024 * 1024 // ограничение размера файла (5MB)
+    },
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype.startsWith('image/')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Неверный тип файла. Пожалуйста, загрузите изображение.'));
+        }
     }
 });
 
@@ -358,6 +366,80 @@ app.get('/debug/users', async (req, res) => {
             error: error.message,
             stack: error.stack
         });
+    }
+});
+
+// Обновление профиля пользователя
+app.post('/api/update-profile', upload.single('avatar'), async (req, res) => {
+    console.log('Получен запрос на обновление профиля');
+    console.log('Тело запроса:', req.body);
+    console.log('Файл:', req.file);
+    
+    const userId = req.body.user_id;
+    if (!userId) {
+        console.log('Ошибка: не указан ID пользователя');
+        return res.status(401).json({ message: 'Пользователь не авторизован' });
+    }
+
+    try {
+        // Получаем данные пользователя из базы данных
+        const [users] = await db.promise().query(
+            "SELECT * FROM users WHERE user_id = ?",
+            [userId]
+        );
+
+        if (users.length === 0) {
+            return res.status(401).json({ message: 'Пользователь не найден' });
+        }
+
+        const user = users[0];
+        const username = req.body.username;
+        console.log('Новое имя пользователя:', username);
+        
+        if (!username) {
+            return res.status(400).json({ message: 'Имя пользователя обязательно' });
+        }
+
+        // Проверяем, не занято ли новое имя пользователя
+        if (username !== user.username) {
+            const [existingUsers] = await db.promise().query(
+                "SELECT username FROM users WHERE username = ? AND user_id != ?",
+                [username, userId]
+            );
+
+            if (existingUsers.length > 0) {
+                return res.status(400).json({ message: 'Это имя пользователя уже занято' });
+            }
+        }
+
+        let profilePictureUrl = user.profile_picture_url;
+
+        // Если загружена новая аватарка
+        if (req.file) {
+            profilePictureUrl = `/uploads/avatars/${req.file.filename}`;
+            console.log('Новая аватарка:', profilePictureUrl);
+        }
+
+        // Обновляем данные пользователя
+        await db.promise().query(
+            "UPDATE users SET username = ?, profile_picture_url = ? WHERE user_id = ?",
+            [username, profilePictureUrl, userId]
+        );
+
+        // Обновляем имя канала
+        await db.promise().query(
+            "UPDATE channels SET channel_name = ? WHERE user_id = ?",
+            [username, userId]
+        );
+
+        console.log('Профиль успешно обновлен');
+        res.json({
+            message: 'Профиль успешно обновлен',
+            profile_picture_url: profilePictureUrl
+        });
+    } catch (error) {
+        console.error('Ошибка при обновлении профиля:', error);
+        res.status(500).json({ message: 'Ошибка при обновлении профиля', error: error.message });
     }
 });
 
