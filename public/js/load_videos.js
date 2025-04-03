@@ -21,9 +21,14 @@ function renderVideos(videos) {
             (video) => `
             <div class="video-item" onclick="window.location.href='/video.html?id=${video.video_id}'">
                 <img src="${video.thumbnail_url}" alt="${video.title}" class="video-thumbnail">
-                <h3>${video.title}</h3>
-                <p>${video.description}</p>
-                <p>Просмотры: ${video.views}</p>
+                <div class="video-info">
+                    <h3>${video.title}</h3>
+                    <p>${video.description}</p>
+                    <p>Канал: ${video.channel_name}</p>
+                    <p>Автор: ${video.uploader_name}</p>
+                    <p>Просмотры: ${video.views}</p>
+                    <p>Дата: ${new Date(video.upload_date).toLocaleDateString()}</p>
+                </div>
             </div>
         `
         )

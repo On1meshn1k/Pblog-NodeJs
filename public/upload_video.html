@@ -9,23 +9,20 @@
 </head>
 
 <body>
-
   <div class="upload-container">
     <h2>Загрузить видео</h2>
-    <input type="file" accept="video/*" id="fileInput">
-    <input type="text" id="videoTitleInput" placeholder="Введите название видео">
-    <input type="file" accept="image/*" id="thumbnailInput" placeholder="Выберите обложку">
-    <button id="uploadButton">Загрузить</button>
-    <button id="previous_page">На главную</button>
+    <form id="uploadForm" enctype="multipart/form-data">
+      <input type="file" accept="video/*" id="fileInput" name="video" required>
+      <input type="text" id="videoTitleInput" name="title" placeholder="Введите название видео" required>
+      <input type="text" id="videoDescriptionInput" name="description" placeholder="Введите описание видео" required>
+      <input type="file" accept="image/*" id="thumbnailInput" name="thumbnail" placeholder="Выберите обложку" required>
+      <button type="submit" id="uploadButton">Загрузить</button>
+      <button type="button" id="previous_page">На главную</button>
+    </form>
     <progress value="0" max="100" id="uploadProgress"></progress>
     <p id="uploadMessage"></p>
   </div>
 
-  <script type="module" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"></script>
-  <script type="module" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js"></script>
-  <script type="module" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js"></script>
-  <script type="module" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js"></script>
-  <script type="module" src="js/upload_video.js"></script>
-
+  <script src="js/upload_video.js"></script>
 </body>
 </html>

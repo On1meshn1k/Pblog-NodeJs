@@ -7,14 +7,14 @@ const jwt = require("jsonwebtoken");
 const multer = require("multer");
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
-// Настройка базы данных
-const db = mysql.createPool({
+// Настройка соединения с базой данных
+const db = mysql.createConnection({
     host: "localhost",
     user: "root",
     password: "root",
-    database: "nodedb",
+    database: "pblog"
 });
 
 // Секретный ключ для JWT
@@ -24,14 +24,15 @@ const SECRET_KEY = "game";
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
+app.use('/uploads', express.static('uploads'));
 
-// Проверка подключения к базе данных
-db.getConnection((err) => {
+// Подключение к базе данных
+db.connect((err) => {
     if (err) {
-        console.error("Ошибка подключения к базе данных:", err);
+        console.error('Ошибка подключения к базе данных:', err);
         return;
     }
-    console.log("Подключение к базе данных успешно");
+    console.log('Подключено к базе данных MySQL');
 });
 
 // Главная страница
@@ -41,12 +42,29 @@ app.get("/", (req, res) => {
 
 // Роут для получения списка видео
 app.get("/api/videos", (req, res) => {
-    db.query("SELECT * FROM videos", (err, results) => {
+    const query = `
+        SELECT 
+            v.video_id,
+            v.title,
+            v.description,
+            v.video_url,
+            v.thumbnail_url,
+            v.upload_date,
+            v.views,
+            u.username as uploader_name,
+            c.channel_name
+        FROM videos v
+        LEFT JOIN users u ON v.user_id = u.user_id
+        LEFT JOIN channels c ON v.channel_id = c.channel_id
+        ORDER BY v.upload_date DESC
+    `;
+
+    db.query(query, (err, results) => {
         if (err) {
-            console.error(err);
-            return res.status(500).send("Ошибка сервера");
+            console.error('Ошибка при получении видео:', err);
+            return res.status(500).send('Ошибка при получении списка видео');
         }
-        res.json(results); // Возвращаем JSON с видео.
+        res.json(results);
     });
 });
 
@@ -129,36 +147,100 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
-// Настройка multer для загрузки видео
+// Настройка multer для загрузки файлов
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, "uploads/");
+        cb(null, 'uploads/');
     },
     filename: (req, file, cb) => {
-        cb(null, Date.now() + path.extname(file.originalname));
-    },
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, uniqueSuffix + path.extname(file.originalname));
+    }
 });
 
-const upload = multer({ storage });
+const upload = multer({ 
+    storage: storage,
+    limits: {
+        fileSize: 100 * 1024 * 1024 // ограничение размера файла (100MB)
+    }
+});
 
-app.post("/upload", upload.single("video"), (req, res) => {
+// Обработка загрузки видео
+app.post('/upload', upload.fields([
+    { name: 'video', maxCount: 1 },
+    { name: 'thumbnail', maxCount: 1 }
+]), async (req, res) => {
+    if (!req.files || !req.files['video'] || !req.files['thumbnail']) {
+        return res.status(400).send('Необходимо загрузить видео и обложку');
+    }
+
+    const videoFile = req.files['video'][0];
+    const thumbnailFile = req.files['thumbnail'][0];
     const { title, description } = req.body;
-    const videoUrl = `/uploads/${req.file.filename}`; // URL видео
-    const thumbnailUrl = `/uploads/${req.file.filename}_thumbnail.jpg`; // URL обложки
+    
+    // Получаем длительность видео (это пример, нужно реализовать)
+    const duration = 0; // Здесь нужно добавить код для получения длительности видео
 
-    // Пример для сохранения обложки отдельно, если она загружается отдельно
-    // или создается отдельно при загрузке видео
-    const query = "INSERT INTO videos (title, description, video_url, thumbnail_url) VALUES (?, ?, ?, ?)";
-    db.query(query, [title, description, videoUrl, thumbnailUrl], (err, results) => {
+    const query = `
+        INSERT INTO videos (
+            title, 
+            description, 
+            video_url, 
+            thumbnail_url, 
+            upload_date,
+            views,
+            user_id,
+            channel_id,
+            duration
+        ) VALUES (?, ?, ?, ?, NOW(), 0, ?, ?, ?)
+    `;
+
+    try {
+        // Здесь нужно получить user_id и channel_id из текущей сессии
+        const userId = 1; // Временно, нужно заменить на реального пользователя
+        const channelId = 1; // Временно, нужно заменить на реальный канал
+
+        db.query(
+            query,
+            [
+                title,
+                description,
+                `/uploads/${videoFile.filename}`,
+                `/uploads/${thumbnailFile.filename}`,
+                userId,
+                channelId,
+                duration
+            ],
+            (err, results) => {
+                if (err) {
+                    console.error('Ошибка при сохранении в базу данных:', err);
+                    return res.status(500).send('Ошибка при загрузке видео: ' + err.message);
+                }
+                console.log('Видео успешно сохранено в базу данных');
+                res.status(201).send('Видео успешно загружено');
+            }
+        );
+    } catch (error) {
+        console.error('Ошибка:', error);
+        res.status(500).send('Внутренняя ошибка сервера');
+    }
+});
+
+// Обновление количества просмотров
+app.post('/api/videos/:id/view', (req, res) => {
+    const videoId = req.params.id;
+    const query = 'UPDATE videos SET views = views + 1 WHERE id = ?';
+    
+    db.query(query, [videoId], (err, results) => {
         if (err) {
-            console.error(err);
-            return res.status(500).send("Ошибка загрузки видео");
+            console.error('Ошибка при обновлении просмотров:', err);
+            return res.status(500).send('Ошибка при обновлении просмотров');
         }
-        res.status(201).send("Видео успешно загружено");
+        res.send('Просмотр засчитан');
     });
 });
 
 // Запуск сервера
 app.listen(PORT, () => {
-    console.log(`Сервер запущен на http://localhost:${PORT}`);
+    console.log(`Сервер запущен на порту ${PORT}`);
 });

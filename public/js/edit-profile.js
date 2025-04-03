@@ -1,30 +1,3 @@
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getAuth } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
-
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyDfKH9o_5TIursPTAV3kgHRo45Sh6-2T4Y",
-  authDomain: "pblog-8e245.firebaseapp.com",
-  projectId: "pblog-8e245",
-  storageBucket: "pblog-8e245.appspot.com",
-  messagingSenderId: "438974043232",
-  appId: "1:438974043232:web:592cecb687e77958c2df05",
-  databaseURL: "https://pblog-8e245-default-rtdb.europe-west1.firebasedatabase.app/",
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getDatabase(app);
-const storage = getStorage(app);
-
-
 // Подключаемся к элементам формы
 const usernameInput = document.getElementById('username');
 const avatarInput = document.getElementById('avatar');

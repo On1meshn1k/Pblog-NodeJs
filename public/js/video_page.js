@@ -1,23 +1,3 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { getDatabase, ref, set, get, push, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-import { getStorage } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyDfKH9o_5TIursPTAV3kgHRo45Sh6-2T4Y",
-  authDomain: "pblog-8e245.firebaseapp.com",
-  projectId: "pblog-8e245",
-  storageBucket: "pblog-8e245.appspot.com",
-  messagingSenderId: "438974043232",
-  appId: "1:438974043232:web:592cecb687e77958c2df05",
-  databaseURL: "https://pblog-8e245-default-rtdb.europe-west1.firebasedatabase.app/",
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-const auth = getAuth(app);
-const storage = getStorage(app);
-
 const username = document.getElementById('username');
 const upload = document.getElementById('upload');
 const logout = document.getElementById('logout');
