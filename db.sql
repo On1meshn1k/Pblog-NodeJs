@@ -1,7 +1,7 @@
 use pblog;
 
 CREATE TABLE users (
-    user_id SERIAL PRIMARY KEY,
+    user_id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) NOT NULL UNIQUE,
     email VARCHAR(100) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
@@ -12,15 +12,16 @@ CREATE TABLE users (
 );
 
 CREATE TABLE channels (
-    channel_id SERIAL PRIMARY KEY,
-    user_id INT REFERENCES users(user_id) ON DELETE CASCADE,
+    channel_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
     channel_name VARCHAR(100) NOT NULL UNIQUE,
     channel_description TEXT,
-    creation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    creation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 
 CREATE TABLE videos (
-    video_id SERIAL PRIMARY KEY,
+    video_id AUTO_INCREMENT PRIMARY KEY,
     channel_id INT REFERENCES channels(channel_id) ON DELETE CASCADE,
     user_id INT REFERENCES users(user_id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
@@ -33,7 +34,7 @@ CREATE TABLE videos (
 );
 
 CREATE TABLE comments (
-    comment_id SERIAL PRIMARY KEY,
+    comment_id AUTO_INCREMENT PRIMARY KEY,
     video_id INT REFERENCES videos(video_id) ON DELETE CASCADE,
     user_id INT REFERENCES users(user_id) ON DELETE SET NULL,
     comment_text TEXT NOT NULL,
@@ -41,7 +42,7 @@ CREATE TABLE comments (
 );
 
 CREATE TABLE video_likes (
-    like_id SERIAL PRIMARY KEY,
+    like_id AUTO_INCREMENT PRIMARY KEY,
     user_id INT REFERENCES users(user_id) ON DELETE CASCADE,
     video_id INT REFERENCES videos(video_id) ON DELETE CASCADE,
     like_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -49,7 +50,7 @@ CREATE TABLE video_likes (
 );
 
 CREATE TABLE video_dislikes (
-    dislike_id SERIAL PRIMARY KEY,
+    dislike_id AUTO_INCREMENT PRIMARY KEY,
     user_id INT REFERENCES users(user_id) ON DELETE CASCADE,
     video_id INT REFERENCES videos(video_id) ON DELETE CASCADE,
     dislike_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -57,7 +58,7 @@ CREATE TABLE video_dislikes (
 );
 
 CREATE TABLE subscriptions (
-    subscription_id SERIAL PRIMARY KEY,
+    subscription_id AUTO_INCREMENT PRIMARY KEY,
     subscriber_id INT REFERENCES users(user_id) ON DELETE CASCADE,
     channel_id INT REFERENCES channels(channel_id) ON DELETE CASCADE,
     subscription_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -65,14 +66,14 @@ CREATE TABLE subscriptions (
 );
 
 CREATE TABLE video_views (
-    view_id SERIAL PRIMARY KEY,
+    view_id AUTO_INCREMENT PRIMARY KEY,
     user_id INT REFERENCES users(user_id) ON DELETE CASCADE,
     video_id INT REFERENCES videos(video_id) ON DELETE CASCADE,
     view_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE video_access (
-    access_id SERIAL PRIMARY KEY,
+    access_id AUTO_INCREMENT PRIMARY KEY,
     video_id INT REFERENCES videos(video_id) ON DELETE CASCADE,
     access_type VARCHAR(20) NOT NULL CHECK (access_type IN ('public', 'private', 'unlisted')),
     password_hash VARCHAR(255),
@@ -80,7 +81,7 @@ CREATE TABLE video_access (
 );
 
 CREATE TABLE playlists (
-    playlist_id SERIAL PRIMARY KEY,
+    playlist_id AUTO_INCREMENT PRIMARY KEY,
     user_id INT REFERENCES users(user_id) ON DELETE CASCADE,
     playlist_name VARCHAR(100) NOT NULL,
     playlist_description TEXT,
@@ -88,7 +89,7 @@ CREATE TABLE playlists (
 );
 
 CREATE TABLE playlist_videos (
-    playlist_video_id SERIAL PRIMARY KEY,
+    playlist_video_id AUTO_INCREMENT PRIMARY KEY,
     playlist_id INT REFERENCES playlists(playlist_id) ON DELETE CASCADE,
     video_id INT REFERENCES videos(video_id) ON DELETE CASCADE,
     added_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

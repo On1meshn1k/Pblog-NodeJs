@@ -15,58 +15,87 @@ signInBtn.addEventListener('click', function() {
 });
 
 // Обработка регистрации
-signUpForm.addEventListener("submit", function(event) {
+signUpForm.addEventListener("submit", async function(event) {
     event.preventDefault();
 
-    const username = document.getElementById("login").value;
-    const email = document.getElementById("email").value;
+    const username = document.getElementById("login").value.trim();
+    const email = document.getElementById("email").value.trim();
     const password = document.getElementById("password").value;
 
-    fetch("/register", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ username, email, password })
-    })
-        .then(response => {
-            if (response.ok) {
-                alert("Регистрация успешна. Пожалуйста, войдите.");
-                formBox.classList.remove('active');  // Показываем форму входа
-            } else {
-                alert("Ошибка регистрации.");
-            }
-        })
-        .catch(error => {
-            console.error("Ошибка при регистрации:", error);
+    try {
+        // Валидация
+        if (username.length < 3) {
+            alert('Имя пользователя должно содержать минимум 3 символа');
+            return;
+        }
+
+        if (username.length > 50) {
+            alert('Имя пользователя не должно превышать 50 символов');
+            return;
+        }
+
+        if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+            alert('Пожалуйста, введите корректный email');
+            return;
+        }
+
+        if (password.length < 6) {
+            alert('Пароль должен содержать минимум 6 символов');
+            return;
+        }
+
+        const response = await fetch("/register", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ username, email, password })
         });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.message || "Ошибка регистрации");
+        }
+
+        // Только если регистрация успешна
+        localStorage.setItem('user', JSON.stringify(data.user));
+        alert("Регистрация успешна!");
+        window.location.href = "/"; // Перенаправляем на главную страницу
+
+    } catch (error) {
+        alert(error.message || "Произошла ошибка при регистрации");
+        return; // Прерываем выполнение в случае ошибки
+    }
 });
 
 // Обработка входа
-signInForm.addEventListener("submit", function(event) {
+signInForm.addEventListener("submit", async function(event) {
     event.preventDefault();
 
-    const email = document.getElementById("email1").value;
+    const email = document.getElementById("email1").value.trim();
     const password = document.getElementById("password1").value;
 
-    fetch("/login", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ email, password })
-    })
-        .then(response => response.json())
-        .then(data => {
-            if (data.message === "Успешный вход") {
-                // Сохраняем информацию о пользователе в localStorage
-                localStorage.setItem("user", JSON.stringify(data.user)); // Предполагается, что data.user — это объект пользователя
-                window.location.href = "/";  // Перенаправляем на главную страницу
-            } else {
-                alert("Неправильный email или пароль.");
-            }
-        })
-        .catch(error => {
-            console.error("Ошибка при входе:", error);
+    try {
+        const response = await fetch("/login", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ email, password })
         });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.message || "Неправильный email или пароль");
+        }
+
+        // Только если вход успешен
+        localStorage.setItem("user", JSON.stringify(data.user));
+        window.location.href = "/";
+
+    } catch (error) {
+        alert(error.message || "Произошла ошибка при входе");
+    }
 });

@@ -24,7 +24,67 @@ if (usernameSpan && logoutButton && authLink) {
     }
 }
 
-// Функция для отправки запроса на сервер для аутентификации
+// Функция регистрации пользователя
+async function registerUser(username, email, password) {
+    try {
+        // Валидация на стороне клиента
+        if (username.length < 3) {
+            alert('Имя пользователя должно содержать минимум 3 символа');
+            return;
+        }
+
+        if (username.length > 50) {
+            alert('Имя пользователя не должно превышать 50 символов');
+            return;
+        }
+
+        if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+            alert('Пожалуйста, введите корректный email');
+            return;
+        }
+
+        if (password.length < 6) {
+            alert('Пароль должен содержать минимум 6 символов');
+            return;
+        }
+
+        const response = await fetch('/register', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ username, email, password })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            localStorage.setItem('user', JSON.stringify(data.user));
+            alert('Регистрация успешна! Сейчас вы будете перенаправлены на главную страницу.');
+            window.location.href = '/'; // Перенаправление на главную после успешной регистрации
+        } else {
+            throw new Error(data.message || 'Ошибка при регистрации');
+        }
+    } catch (error) {
+        alert(error.message || 'Произошла ошибка при регистрации');
+    }
+}
+
+// Обработчик формы регистрации
+const signupForm = document.getElementById("signupForm");
+if (signupForm) {
+    signupForm.addEventListener("submit", async function(e) {
+        e.preventDefault();
+        
+        const username = document.getElementById("login").value.trim();
+        const email = document.getElementById("email").value.trim();
+        const password = document.getElementById("password").value;
+        
+        await registerUser(username, email, password);
+    });
+}
+
+// Обновляем функцию входа для сохранения всех данных пользователя
 async function loginUser(email, password) {
     try {
         const response = await fetch('/login', {
@@ -32,7 +92,7 @@ async function loginUser(email, password) {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ email, password }),
+            body: JSON.stringify({ email, password })
         });
 
         const data = await response.json();
@@ -40,7 +100,7 @@ async function loginUser(email, password) {
         if (response.ok) {
             console.log("User logged in:", data);
             localStorage.setItem('user', JSON.stringify(data.user));
-            window.location.href = '/'; // Перенаправляем на главную страницу после успешного входа
+            window.location.href = '/';
         } else {
             console.error("Login failed:", data.message);
             alert(data.message || 'Ошибка входа');

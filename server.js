@@ -69,64 +69,164 @@ app.get("/api/videos", (req, res) => {
 });
 
 // Регистрация пользователя
-app.post("/register", (req, res) => {
+app.post("/register", async (req, res) => {
+    console.log('Начало регистрации:', req.body);
+
     const { username, email, password } = req.body;
 
-    bcrypt.hash(password, 10, (err, hash) => {
-        if (err) {
-            console.error(err);
-            return res.status(500).send("Ошибка хеширования пароля");
+    if (!username || !email || !password) {
+        console.log('Отсутствуют обязательные поля');
+        return res.status(400).json({
+            message: "Все поля обязательны для заполнения"
+        });
+    }
+
+    let connection;
+    try {
+        connection = await db.promise();
+        await connection.beginTransaction();
+        console.log('Начало транзакции');
+
+        // Проверка существующих пользователей
+        const [existingUsers] = await connection.query(
+            "SELECT username, email FROM users WHERE username = ? OR email = ?",
+            [username, email]
+        );
+        console.log('Проверка существующих пользователей:', existingUsers);
+
+        if (existingUsers.length > 0) {
+            const existing = existingUsers[0];
+            if (existing.email === email) {
+                await connection.rollback();
+                return res.status(400).json({
+                    message: "Этот email уже зарегистрирован"
+                });
+            }
+            if (existing.username === username) {
+                await connection.rollback();
+                return res.status(400).json({
+                    message: "Это имя пользователя уже занято"
+                });
+            }
         }
 
-        const query = "INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)";
-        db.query(query, [username, email, hash], (err, results) => {
-            if (err) {
-                console.error(err);
-                return res.status(500).send("Ошибка регистрации пользователя");
+        // Хеширование пароля
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const defaultProfilePicture = '/images/default-avatar.png';
+
+        // Добавление пользователя
+        console.log('Добавление пользователя');
+        const [userResult] = await connection.query(
+            `INSERT INTO users (
+                username, 
+                email, 
+                password_hash, 
+                profile_picture_url, 
+                registration_date, 
+                last_login
+            ) VALUES (?, ?, ?, ?, NOW(), NOW())`,
+            [username, email, hashedPassword, defaultProfilePicture]
+        );
+
+        const userId = userResult.insertId;
+        console.log('Пользователь создан с ID:', userId);
+
+        // Создание канала
+        console.log('Создание канала');
+        await connection.query(
+            `INSERT INTO channels (
+                user_id, 
+                channel_name, 
+                channel_description
+            ) VALUES (?, ?, ?)`,
+            [userId, username, `Канал пользователя ${username}`]
+        );
+
+        await connection.commit();
+        console.log('Транзакция завершена успешно');
+
+        return res.status(201).json({
+            message: "Регистрация успешна",
+            user: {
+                user_id: userId,
+                username,
+                email,
+                profile_picture_url: defaultProfilePicture
             }
-            res.status(201).send("Пользователь успешно зарегистрирован");
         });
-    });
+
+    } catch (error) {
+        console.error('Ошибка при регистрации:', {
+            message: error.message,
+            code: error.code,
+            sqlMessage: error.sqlMessage,
+            stack: error.stack
+        });
+
+        if (connection) {
+            await connection.rollback();
+            console.log('Транзакция отменена');
+        }
+
+        return res.status(500).json({
+            message: "Ошибка при регистрации пользователя",
+            details: error.message
+        });
+    }
 });
 
-// Вход пользователя
-app.post("/login", (req, res) => {
+// Обновление last_login при входе
+app.post("/login", async (req, res) => {
     const { email, password } = req.body;
 
-    const query = "SELECT * FROM users WHERE email = ?";
-    db.query(query, [email], (err, results) => {
-        if (err) {
-            console.error(err);
-            return res.status(500).send("Ошибка сервера");
+    try {
+        const [users] = await db.promise().query(
+            "SELECT * FROM users WHERE email = ?",
+            [email]
+        );
+
+        if (users.length === 0) {
+            return res.status(401).json({ message: "Неправильный email или пароль" });
         }
 
-        if (results.length === 0) {
-            return res.status(401).send({ message: "Неправильный email или пароль" });
+        const user = users[0];
+        const isValidPassword = await bcrypt.compare(password, user.password_hash);
+
+        if (!isValidPassword) {
+            return res.status(401).json({ message: "Неправильный email или пароль" });
         }
 
-        const user = results[0];
-        const bcrypt = require("bcrypt");
+        // Обновляем last_login
+        await db.promise().query(
+            "UPDATE users SET last_login = NOW() WHERE user_id = ?",
+            [user.user_id]
+        );
 
-        bcrypt.compare(password, user.password_hash, (err, isMatch) => {
-            if (err) {
-                console.error(err);
-                return res.status(500).send("Ошибка проверки пароля");
+        // Получаем информацию о канале пользователя
+        const [channels] = await db.promise().query(
+            "SELECT * FROM channels WHERE user_id = ?",
+            [user.user_id]
+        );
+
+        res.status(200).json({
+            message: "Успешный вход",
+            user: {
+                user_id: user.user_id,
+                username: user.username,
+                email: user.email,
+                profile_picture_url: user.profile_picture_url,
+                is_verified: user.is_verified,
+                channel: channels[0] || null
             }
-
-            if (!isMatch) {
-                return res.status(401).send({ message: "Неправильный email или пароль" });
-            }
-
-            // Возвращаем только нужные данные пользователя
-            res.status(200).send({
-                message: "Успешный вход",
-                user: {
-                    username: user.username,
-                    email: user.email
-                }
-            });
         });
-    });
+
+    } catch (error) {
+        console.error('Ошибка при входе:', error);
+        res.status(500).json({
+            message: "Ошибка сервера при входе",
+            error: error.message
+        });
+    }
 });
 
 // Middleware для проверки токена
@@ -238,6 +338,27 @@ app.post('/api/videos/:id/view', (req, res) => {
         }
         res.send('Просмотр засчитан');
     });
+});
+
+// Временный маршрут для диагностики
+app.get('/debug/users', async (req, res) => {
+    try {
+        // Проверяем структуру таблицы
+        const [structure] = await db.promise().query('DESCRIBE users');
+        
+        // Получаем все записи
+        const [users] = await db.promise().query('SELECT user_id, username, email FROM users');
+        
+        res.json({
+            tableStructure: structure,
+            users: users
+        });
+    } catch (error) {
+        res.status(500).json({
+            error: error.message,
+            stack: error.stack
+        });
+    }
 });
 
 // Запуск сервера
