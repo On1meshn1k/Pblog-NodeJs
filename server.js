@@ -1351,5 +1351,5 @@ app.get('/debug/videos/structure', async (req, res) => {
 
 // Запуск сервера
 app.listen(PORT, () => {
-    console.log(`Сервер запущен на порту ${PORT}`);
+    console.log(`Запущен на сервере http://localhost:${PORT}`);
 });

@@ -352,8 +352,67 @@ const logout = document.getElementById('logout');
         });
     }
 
-    // Загружаем видео при загрузке страницы
+    // Функция для загрузки других видео
+    const loadOtherVideos = async () => {
+        try {
+            const response = await fetch('/api/videos');
+            if (!response.ok) {
+                throw new Error('Ошибка при загрузке видео');
+            }
+            const videos = await response.json();
+            
+            // Фильтруем текущее видео из списка
+            const otherVideos = videos.filter(video => video.video_id !== parseInt(videoId));
+            
+            // Отображаем видео
+            displayOtherVideos(otherVideos);
+        } catch (error) {
+            console.error('Ошибка при загрузке других видео:', error);
+        }
+    };
+
+    // Функция для отображения других видео
+    const displayOtherVideos = (videos) => {
+        const videoList = document.getElementById('videoList');
+        videoList.innerHTML = '';
+
+        if (videos.length === 0) {
+            videoList.innerHTML = '<p>Других видео пока нет</p>';
+            return;
+        }
+
+        videos.forEach(video => {
+            const videoElement = document.createElement('div');
+            videoElement.className = 'video-item';
+            
+            // Форматируем дату
+            const date = new Date(video.upload_date);
+            const formattedDate = date.toLocaleString('ru-RU', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+
+            videoElement.innerHTML = `
+                <a href="/video.html?id=${video.video_id}" class="video-link">
+                    <div class="thumbnail-container">
+                        <img src="${video.thumbnail_url}" alt="${video.title}" class="video-thumbnail">
+                    </div>
+                    <div class="video-info">
+                        <h4 class="video-title">${video.title}</h4>
+                        <p class="video-uploader">${video.uploader_name}</p>
+                        <p class="video-views">${video.views} просмотров</p>
+                        <p class="video-date">${formattedDate}</p>
+                    </div>
+                </a>
+            `;
+            videoList.appendChild(videoElement);
+        });
+    };
+
+    // Загружаем видео и другие видео при загрузке страницы
     loadVideo();
+    loadOtherVideos();
 
     // Функция для загрузки комментариев
     const loadComments = async () => {
