@@ -6,6 +6,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const authLink = document.getElementById("authLink");
     const channelNameSpan = document.getElementById("channelName");
     const channelLogo = document.getElementById("channelLogo");
+    const channelDescription = document.getElementById("channelDescription");
     const subscribeButton = document.getElementById("subscribeButton");
     const videoList = document.getElementById("videoList");
     const subscribersCount = document.getElementById("subscribersCount");
@@ -126,32 +127,39 @@ document.addEventListener("DOMContentLoaded", async () => {
         try {
             const response = await fetch(`/api/channels/${channelId}`);
             if (!response.ok) {
-                throw new Error("Канал не найден");
+                throw new Error('Ошибка при загрузке информации о канале');
             }
             const channel = await response.json();
-
+            
             // Обновляем информацию о канале
             if (channelNameSpan) channelNameSpan.textContent = channel.channel_name;
             if (channelLogo) channelLogo.src = channel.channel_avatar || "images/default-avatar.png";
-
+            if (channelDescription) channelDescription.textContent = channel.channel_description || "Описание отсутствует";
+            
+            // Обновляем счетчик подписчиков
+            if (subscribersCount) {
+                subscribersCount.textContent = `${channel.subscribers_count || 0} подписчиков`;
+            }
+            
             // Проверяем, является ли текущий пользователь владельцем канала
-            if (user && channel.user_id === user.user_id) {
-                if (subscribeButton) {
+            const currentUser = JSON.parse(localStorage.getItem("user") || "null");
+            if (subscribeButton) {
+                if (currentUser && channel.user_id === currentUser.user_id) {
+                    // Если пользователь просматривает свой канал, скрываем кнопку подписки
                     subscribeButton.style.display = "none";
-                }
-            } else {
-                if (subscribeButton) {
+                } else {
+                    // Если пользователь просматривает чужой канал, показываем кнопку подписки
                     subscribeButton.style.display = "block";
                     // Обновляем состояние кнопки подписки
                     await updateSubscriptionButton(channelId);
                 }
             }
-
+            
             // Загружаем видео канала
             await loadChannelVideos(channelId);
+            
         } catch (error) {
-            console.error("Ошибка при загрузке информации о канале:", error);
-            if (channelNameSpan) channelNameSpan.textContent = "Канал не найден";
+            console.error('Ошибка при загрузке информации о канале:', error);
         }
     };
 
@@ -275,5 +283,5 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
 
     // Загружаем информацию о канале
-    await loadChannelInfo();
+    loadChannelInfo();
 }); 

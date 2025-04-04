@@ -14,9 +14,14 @@
         <div class="container">
             <h1>Редактировать профиль</h1>
             <label for="username" class="username">Имя пользователя:</label><br>
-            <input type="text" id="username" name="username" maxlength="12"><br>
+            <input type="text" id="username" name="username" maxlength="20"><br>
             <label for="avatar" class="avatar">Аватар профиля:</label><br>
             <input type="file" id="avatar" name="avatar" accept="image/*"><br>
+            <div class="avatar-preview">
+                <img id="avatarPreview" src="images/default-avatar.png" alt="Предпросмотр аватарки">
+            </div>
+            <label for="channelDescription" class="channel-description">Описание канала:</label><br>
+            <textarea id="channelDescription" name="channelDescription" rows="4" maxlength="500"></textarea><br>
             <div class="btns">
                 <button id="previous_page">На главную</button>
                 <button id="submit">Сохранить</button>

@@ -345,55 +345,69 @@ document.addEventListener('DOMContentLoaded', () => {
             if (videoDescription) videoDescription.textContent = video.description || 'Описание отсутствует';
             if (videoViews) videoViews.textContent = formatViews(video.views || 0);
             if (uploadDate) uploadDate.textContent = formatDate(video.upload_date);
-            if (videoUploader) videoUploader.textContent = video.uploader_name || 'Неизвестный автор';
+            if (videoUploader) videoUploader.textContent = video.author_name || 'Неизвестный автор';
             if (authorAvatar) authorAvatar.src = video.channel_avatar || 'images/default-avatar.png';
-
-            // Проверяем, является ли текущий пользователь владельцем канала
-            const currentUser = JSON.parse(localStorage.getItem("user") || "null");
-            if (subscribeButton) {
-                if (currentUser && video.user_id === currentUser.user_id) {
-                    // Если пользователь просматривает свой канал, скрываем кнопку подписки
-                    subscribeButton.style.display = "none";
-                    console.log("Пользователь просматривает свой канал, кнопка подписки скрыта");
-                } else {
-                    // Если пользователь просматривает чужой канал, показываем кнопку подписки
-                    subscribeButton.style.display = "block";
-                    console.log("Пользователь просматривает чужой канал, кнопка подписки показана");
-                    // Обновляем состояние кнопки подписки
-                    await updateSubscriptionButton(video.channel_id);
-                }
-            }
-
-            // Устанавливаем ссылку на канал автора в зависимости от того, является ли текущий пользователь автором
+            
+            // Обновляем счетчик просмотров
+            await updateVideoViews(videoId);
+            
+            // Если есть ссылка на автора, устанавливаем её
             if (authorLink && video.channel_id) {
-                if (currentUser && video.user_id === currentUser.user_id) {
-                    // Если текущий пользователь является автором видео, перенаправляем на channel.html
-                    authorLink.href = `/channel.html?id=${video.channel_id}`;
-                    console.log('Установлена ссылка на личный канал:', `/channel.html?id=${video.channel_id}`);
-                } else {
-                    // Если текущий пользователь не является автором видео, перенаправляем на channel_view.html
-                    authorLink.href = `/channel_view.html?id=${video.channel_id}`;
-                    console.log('Установлена ссылка на канал автора:', `/channel_view.html?id=${video.channel_id}`);
-                }
-            } else {
-                console.warn('Не удалось установить ссылку на канал автора: channel_id отсутствует');
+                authorLink.href = `channel_view.html?id=${video.channel_id}`;
             }
-
-            // Обновляем рейтинг
+            
+            // Обновляем состояние кнопки подписки, если есть ID канала
+            if (video.channel_id) {
+                await updateSubscriptionButton(video.channel_id);
+            }
+            
+            // Загружаем рейтинги видео
             await updateRatings();
-
+            
             // Загружаем другие видео
             await loadOtherVideos();
-
+            
             // Загружаем комментарии
             await loadComments();
-
+            
         } catch (error) {
             console.error('Ошибка при загрузке видео:', error);
             if (errorMessage) {
                 errorMessage.textContent = error.message;
                 errorMessage.style.display = 'block';
             }
+        }
+    };
+
+    // Функция для обновления счетчика просмотров
+    const updateVideoViews = async (videoId) => {
+        try {
+            const user = JSON.parse(localStorage.getItem('user'));
+            if (!user) return;
+            
+            const response = await fetch(`/api/videos/${videoId}/view`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ user_id: user.user_id })
+            });
+            
+            if (!response.ok) {
+                console.error('Ошибка при обновлении счетчика просмотров');
+                return;
+            }
+            
+            const result = await response.json();
+            console.log('Результат обновления просмотров:', result);
+            
+            // Обновляем отображение количества просмотров
+            if (result.viewCount > 0) {
+                const currentViews = parseInt(videoViews.textContent) || 0;
+                videoViews.textContent = formatViews(currentViews + 1);
+            }
+        } catch (error) {
+            console.error('Ошибка при обновлении счетчика просмотров:', error);
         }
     };
 
@@ -468,7 +482,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         <img src="${video.thumbnail_url}" alt="${video.title}" class="video-thumbnail">
                     </div>
                     <div class="video-info">
-                        <h4 class="video-title">${video.title}</h4>
+                        <div class="video-author-info">
+                            <img src="${video.logo_url || 'images/default-avatar.png'}" alt="${video.uploader_name}" class="video-author-avatar">
+                            <h4 class="video-title">${video.title}</h4>
+                        </div>
                         <p class="video-uploader">${video.uploader_name}</p>
                         <p class="video-views">${video.views} просмотров</p>
                         <p class="video-date">${formattedDate}</p>

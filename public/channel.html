@@ -46,16 +46,21 @@
         </div>
         <div class="subscribe-list">
             <h3>Подписки</h3>
+            <div class="subscriptions-list">
+                <!-- Подписки будут добавляться динамически -->
+            </div>
         </div>
     </div>
 
     <!-- main -->
     <div class="container main-content">
         <div class="channel-info">
-            <div class="channel-name" id="channelName"></div>
-            <div class="logotype">
-                <img src="images/logo.png" class="channel-logo" id="channelLogo">
-                <button class="change-logo" id="changeLogo">Изменить профиль</button>
+            <img src="images/default-avatar.png" alt="Channel Logo" id="channelLogo" class="channel-logo">
+            <div class="channel-details">
+                <h2 id="channelName">Название канала</h2>
+                <p id="channelDescription" class="channel-description">Описание канала</p>
+                <p id="subscribersCount" class="subscribers-count">0 подписчиков</p>
+                <button id="editProfile" class="edit-profile-btn">Изменить профиль</button>
             </div>
         </div>
         <hr>

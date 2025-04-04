@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const upload = document.getElementById('upload');
     const logout = document.getElementById('logout');
     const enter = document.querySelector('.auth');
+    const subscriptionsList = document.querySelector('.subscriptions-list');
 
     // Проверяем авторизацию
     const user = JSON.parse(localStorage.getItem('user'));
@@ -15,11 +16,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (logout) logout.style.display = "block";
         if (enter) enter.style.display = "none";
         if (username) username.innerText = user.username;
+        
+        // Загружаем подписки пользователя
+        loadUserSubscriptions(user.user_id);
     } else {
         if (username) username.style.display = "none";
         if (upload) upload.style.display = "none";
         if (logout) logout.style.display = "none";
         if (enter) enter.style.display = "block";
+        if (subscriptionsList) {
+            subscriptionsList.innerHTML = '<p class="no-subscriptions">Войдите, чтобы видеть подписки</p>';
+        }
     }
 
     // Обработчик выхода
@@ -60,13 +67,56 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Загрузка видео
+// Функция загрузки подписок пользователя
+async function loadUserSubscriptions(userId) {
+    try {
+        const response = await fetch(`/api/users/${userId}/subscriptions`);
+        if (!response.ok) {
+            throw new Error('Ошибка при загрузке подписок');
+        }
+        
+        const subscriptions = await response.json();
+        const subscriptionsList = document.querySelector('.subscriptions-list');
+        
+        if (!subscriptionsList) return;
+        
+        if (subscriptions.length === 0) {
+            subscriptionsList.innerHTML = '<p class="no-subscriptions">У вас пока нет подписок</p>';
+            return;
+        }
+        
+        // Очищаем список подписок
+        subscriptionsList.innerHTML = '';
+        
+        // Добавляем каждую подписку в список
+        subscriptions.forEach(channel => {
+            const channelElement = document.createElement('div');
+            channelElement.className = 'subscription-item';
+            channelElement.innerHTML = `
+                <a href="/channel_view.html?id=${channel.channel_id}" class="subscription-link">
+                    <img src="${channel.logo_url || 'images/default-avatar.png'}" alt="${channel.channel_name}" class="channel-avatar">
+                    <span class="channel-name">${channel.channel_name}</span>
+                </a>
+            `;
+            subscriptionsList.appendChild(channelElement);
+        });
+    } catch (error) {
+        console.error('Ошибка при загрузке подписок:', error);
+        const subscriptionsList = document.querySelector('.subscriptions-list');
+        if (subscriptionsList) {
+            subscriptionsList.innerHTML = '<p class="error">Ошибка при загрузке подписок</p>';
+        }
+    }
+}
 
+// Загрузка видео
 const upload_video = document.getElementById('upload');
 
-upload_video.addEventListener("click", function() {
-  window.location.href = "upload_video.html"
-})
+if (upload_video) {
+    upload_video.addEventListener("click", function() {
+        window.location.href = "upload_video.html"
+    });
+}
 
 function createVideoElement(video) {
     const videoItem = document.createElement('div');

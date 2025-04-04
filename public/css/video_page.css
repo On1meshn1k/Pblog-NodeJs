@@ -186,6 +186,20 @@
     justify-content: center;
 }
 
+.videobar .video-author-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 5px;
+}
+
+.videobar .video-author-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
 .videobar .video-title {
     font-size: 14px;
     font-weight: 600;
@@ -339,7 +353,7 @@
 }
 
 .subscribe-button {
-    background-color: #cc0000;
+    background-color: #2bbcff;
     color: white;
     border: none;
     padding: 10px 20px;
@@ -352,7 +366,7 @@
 }
 
 .subscribe-button:hover {
-    background-color: #990000;
+    background-color: #26a3dd;
 }
 
 .subscribe-button.subscribed {

@@ -83,13 +83,13 @@ body {
 
   .form-group textarea {
     height: 100px;
-    resize: vertical;
+    resize: none;
   }
 
   .submit-button {
     width: 100%;
     padding: 12px;
-    background-color: #007bff;
+    background-color: #2bbcff;
     color: white;
     border: none;
     border-radius: 5px;

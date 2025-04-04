@@ -23,11 +23,9 @@ function renderVideos(videos) {
                 <img src="${video.thumbnail_url}" alt="${video.title}" class="video-thumbnail">
                 <div class="video-info">
                     <h3>${video.title}</h3>
-                    <p>${video.description}</p>
-                    <p>Канал: ${video.channel_name}</p>
-                    <p>Автор: ${video.uploader_name}</p>
-                    <p>Просмотры: ${video.views}</p>
-                    <p>Дата: ${new Date(video.upload_date).toLocaleDateString()}</p>
+                    <p>${video.channel_name}</p>
+                    <p>${video.views} просмотров</p>
+                    <p>${new Date(video.upload_date).toLocaleDateString()}</p>
                 </div>
             </div>
         `

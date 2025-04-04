@@ -1,7 +1,7 @@
 use pblog;
 
 CREATE TABLE users (
-    user_id INT Serial PRIMARY KEY,
+    user_id Serial PRIMARY KEY,
     username VARCHAR(50) NOT NULL UNIQUE,
     email VARCHAR(100) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
@@ -12,7 +12,7 @@ CREATE TABLE users (
 );
 
 CREATE TABLE channels (
-    channel_id INT Serial PRIMARY KEY,
+    channel_id Serial PRIMARY KEY,
     user_id INT,
     channel_name VARCHAR(100) NOT NULL UNIQUE,
     channel_description TEXT,
@@ -93,5 +93,5 @@ CREATE TABLE playlist_videos (
     playlist_id INT REFERENCES playlists(playlist_id) ON DELETE CASCADE,
     video_id INT REFERENCES videos(video_id) ON DELETE CASCADE,
     added_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (playlist_id, video_id) -- Запрещает дублирование одного видео в одном плейлисте
+    UNIQUE (playlist_id, video_id)
 );

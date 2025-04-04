@@ -1,6 +1,7 @@
 // Подключаемся к элементам формы
 const usernameInput = document.getElementById('username');
 const avatarInput = document.getElementById('avatar');
+const channelDescriptionInput = document.getElementById('channelDescription');
 const submit = document.getElementById("submit");
 const backButton = document.getElementById('previous_page');
 
@@ -16,6 +17,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         const user = JSON.parse(userData);
         usernameInput.value = user.username;
+        
+        // Загружаем текущую аватарку пользователя
+        const avatarPreview = document.getElementById('avatarPreview');
+        if (avatarPreview && user.profile_picture_url) {
+            avatarPreview.src = user.profile_picture_url;
+        }
+        
+        // Загружаем описание канала
+        try {
+            const response = await fetch(`/api/channels/user/${user.user_id}`);
+            if (response.ok) {
+                const channelData = await response.json();
+                if (channelDescriptionInput && channelData.channel_description) {
+                    channelDescriptionInput.value = channelData.channel_description;
+                }
+            }
+        } catch (error) {
+            console.error('Ошибка при загрузке описания канала:', error);
+        }
     } catch (error) {
         console.error('Ошибка при загрузке данных пользователя:', error);
     }
@@ -39,6 +59,17 @@ avatarInput.addEventListener('change', async (event) => {
         event.target.value = '';
         return;
     }
+
+    // Показываем предпросмотр аватарки
+    const previewImage = document.getElementById('avatarPreview');
+    if (previewImage) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            previewImage.src = e.target.result;
+            previewImage.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+    }
 });
 
 // Обработка отправки формы
@@ -56,6 +87,7 @@ submit.addEventListener('click', async (event) => {
         const user = JSON.parse(userData);
         const newUsername = usernameInput.value.trim();
         const avatarFile = avatarInput.files[0];
+        const channelDescription = channelDescriptionInput.value.trim();
 
         if (!newUsername) {
             alert('Пожалуйста, введите имя пользователя');
@@ -66,6 +98,7 @@ submit.addEventListener('click', async (event) => {
         const formData = new FormData();
         formData.append('username', newUsername);
         formData.append('user_id', user.user_id);
+        formData.append('channel_description', channelDescription);
         if (avatarFile) {
             formData.append('avatar', avatarFile);
         }
