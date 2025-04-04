@@ -1128,6 +1128,70 @@ app.post('/api/videos/:id/dislike', async (req, res) => {
     }
 });
 
+// Маршрут для удаления дизлайка
+app.delete('/api/videos/:id/dislike', async (req, res) => {
+    try {
+        const videoId = req.params.id;
+        const userId = req.body.user_id;
+
+        if (!userId) {
+            return res.status(400).json({ 
+                message: 'ID пользователя не указан',
+                error: 'USER_ID_REQUIRED'
+            });
+        }
+
+        // Проверяем существование пользователя и видео
+        const [users] = await db.promise().query(
+            'SELECT user_id FROM users WHERE user_id = ?',
+            [userId]
+        );
+
+        if (users.length === 0) {
+            return res.status(404).json({ 
+                message: 'Пользователь не найден',
+                error: 'USER_NOT_FOUND'
+            });
+        }
+
+        const [videos] = await db.promise().query(
+            'SELECT video_id FROM videos WHERE video_id = ?',
+            [videoId]
+        );
+
+        if (videos.length === 0) {
+            return res.status(404).json({ 
+                message: 'Видео не найдено',
+                error: 'VIDEO_NOT_FOUND'
+            });
+        }
+
+        // Удаляем дизлайк
+        const [result] = await db.promise().query(
+            'DELETE FROM video_dislikes WHERE video_id = ? AND user_id = ?',
+            [videoId, userId]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ 
+                message: 'Дизлайк не найден',
+                error: 'DISLIKE_NOT_FOUND'
+            });
+        }
+
+        res.json({ 
+            message: 'Дизлайк успешно удален',
+            action: 'remove_dislike'
+        });
+    } catch (error) {
+        console.error('Ошибка при удалении дизлайка:', error);
+        res.status(500).json({ 
+            message: 'Ошибка при удалении дизлайка',
+            error: error.message
+        });
+    }
+});
+
 // Маршрут для проверки структуры базы данных
 app.get('/debug/db', async (req, res) => {
     try {

@@ -259,8 +259,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             try {
+                // Проверяем, активна ли кнопка дизлайка
+                const isDisliked = dislikeButton.classList.contains('active');
+                
+                // Выбираем метод запроса в зависимости от состояния
+                const method = isDisliked ? 'DELETE' : 'POST';
+                
                 const response = await fetch(`/api/videos/${videoId}/dislike`, {
-                    method: 'POST',
+                    method: method,
                     headers: {
                         'Content-Type': 'application/json'
                     },
@@ -269,11 +275,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (!response.ok) {
                     const error = await response.json();
-                    throw new Error(error.message || 'Ошибка при постановке дизлайка');
+                    throw new Error(error.message || 'Ошибка при управлении дизлайком');
                 }
 
                 const result = await response.json();
-                console.log('Результат постановки дизлайка:', result);
+                console.log('Результат управления дизлайком:', result);
 
                 // Обновляем UI в зависимости от результата
                 if (dislikeButton) {
@@ -284,14 +290,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 await updateRatings();
 
             } catch (error) {
-                console.error('Ошибка при постановке дизлайка:', error);
+                console.error('Ошибка при управлении дизлайком:', error);
                 if (errorMessage) {
                     errorMessage.textContent = error.message;
                     errorMessage.style.display = 'block';
                 }
-        }
-    });
-}
+            }
+        });
+    }
 
     // Загружаем информацию о видео
     const loadVideo = async () => {
