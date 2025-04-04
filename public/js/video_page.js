@@ -354,4 +354,108 @@ const logout = document.getElementById('logout');
 
     // Загружаем видео при загрузке страницы
     loadVideo();
+
+    // Функция для загрузки комментариев
+    const loadComments = async () => {
+        try {
+            const response = await fetch(`/api/videos/${videoId}/comments`);
+            if (!response.ok) {
+                throw new Error('Ошибка при загрузке комментариев');
+            }
+            const comments = await response.json();
+            displayComments(comments);
+        } catch (error) {
+            console.error('Ошибка при загрузке комментариев:', error);
+        }
+    };
+
+    // Функция для отображения комментариев
+    const displayComments = (comments) => {
+        const commentsList = document.getElementById('commentsList');
+        commentsList.innerHTML = '';
+
+        if (comments.length === 0) {
+            commentsList.innerHTML = '<p>Комментариев пока нет</p>';
+            return;
+        }
+
+        comments.forEach(comment => {
+            const commentElement = document.createElement('div');
+            commentElement.className = 'comment';
+            
+            const date = new Date(comment.comment_date);
+            const formattedDate = date.toLocaleString('ru-RU', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            commentElement.innerHTML = `
+                <img src="${comment.profile_picture_url || '/images/default-avatar.png'}" alt="Аватар" class="comment-avatar">
+                <div class="comment-content">
+                    <div class="comment-header">
+                        <span class="comment-username">${comment.username}</span>
+                        <span class="comment-date">${formattedDate}</span>
+                    </div>
+                    <p class="comment-text">${comment.comment_text}</p>
+                </div>
+            `;
+            commentsList.appendChild(commentElement);
+        });
+    };
+
+    // Функция для добавления комментария
+    const addComment = async () => {
+        const commentText = document.getElementById('commentText').value.trim();
+        if (!commentText) {
+            alert('Введите текст комментария');
+            return;
+        }
+
+        if (!user) {
+            alert('Для добавления комментария необходимо авторизоваться');
+            window.location.href = '/enter.html';
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/videos/${videoId}/comments`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    user_id: user.user_id,
+                    comment_text: commentText
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Ошибка при добавлении комментария');
+            }
+
+            // Очищаем поле ввода и обновляем список комментариев
+            document.getElementById('commentText').value = '';
+            loadComments();
+        } catch (error) {
+            console.error('Ошибка при добавлении комментария:', error);
+            alert('Ошибка при добавлении комментария');
+        }
+    };
+
+    // Загружаем комментарии при загрузке страницы
+    loadComments();
+
+    // Обработчик для кнопки отправки комментария
+    document.getElementById('submitComment').addEventListener('click', addComment);
+
+    // Обработчик для отправки комментария по Enter
+    document.getElementById('commentText').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            addComment();
+        }
+    });
 });

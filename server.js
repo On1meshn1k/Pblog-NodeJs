@@ -269,6 +269,24 @@ db.query(createChannelsTable, (err) => {
     }
 });
 
+// Создаем таблицу comments, если она не существует
+const createCommentsTable = `
+CREATE TABLE IF NOT EXISTS comments (
+    comment_id serial PRIMARY KEY,
+    video_id INT REFERENCES videos(video_id) ON DELETE CASCADE,
+    user_id INT REFERENCES users(user_id) ON DELETE SET NULL,
+    comment_text TEXT NOT NULL,
+    comment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)`;
+
+db.query(createCommentsTable, (err) => {
+    if (err) {
+        console.error('Ошибка при создании таблицы comments:', err);
+    } else {
+        console.log('Таблица comments успешно создана или уже существует');
+    }
+});
+
 // Главная страница
 app.get("/", (req, res) => {
     res.sendFile(path.join(__dirname, "public", "index.html"));
@@ -1230,7 +1248,108 @@ app.post('/api/channels', async (req, res) => {
     }
 });
 
+// Отладочный маршрут для проверки видео
+app.get('/debug/videos/:id', async (req, res) => {
+    try {
+        const videoId = req.params.id;
+        console.log('Отладочный запрос для видео:', videoId);
+
+        // Проверяем существование видео
+        const [videos] = await db.promise().query('SELECT * FROM videos WHERE video_id = ?', [videoId]);
+        console.log('Результат запроса:', videos);
+
+        if (videos.length === 0) {
+            return res.json({ 
+                message: 'Видео не найдено',
+                videoId: videoId
+            });
+        }
+
+        res.json(videos[0]);
+    } catch (error) {
+        console.error('Ошибка при отладке:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Маршрут для получения комментариев видео
+app.get('/api/videos/:id/comments', async (req, res) => {
+    try {
+        const videoId = req.params.id;
+        console.log('Получен запрос на получение комментариев для видео:', videoId);
+
+        const [comments] = await db.promise().query(`
+            SELECT 
+                c.*,
+                u.username,
+                u.profile_picture_url
+            FROM comments c
+            LEFT JOIN users u ON c.user_id = u.user_id
+            WHERE c.video_id = ?
+            ORDER BY c.comment_date DESC
+        `, [videoId]);
+
+        res.json(comments);
+    } catch (error) {
+        console.error('Ошибка при получении комментариев:', error);
+        res.status(500).json({ 
+            message: 'Ошибка при получении комментариев',
+            error: error.message
+        });
+    }
+});
+
+// Маршрут для добавления комментария
+app.post('/api/videos/:id/comments', async (req, res) => {
+    try {
+        const videoId = req.params.id;
+        const { user_id, comment_text } = req.body;
+
+        if (!user_id || !comment_text) {
+            return res.status(400).json({ 
+                message: 'ID пользователя и текст комментария обязательны',
+                error: 'MISSING_FIELDS'
+            });
+        }
+
+        const [result] = await db.promise().query(
+            'INSERT INTO comments (video_id, user_id, comment_text) VALUES (?, ?, ?)',
+            [videoId, user_id, comment_text]
+        );
+
+        // Получаем добавленный комментарий с информацией о пользователе
+        const [comments] = await db.promise().query(`
+            SELECT 
+                c.*,
+                u.username,
+                u.profile_picture_url
+            FROM comments c
+            LEFT JOIN users u ON c.user_id = u.user_id
+            WHERE c.comment_id = ?
+        `, [result.insertId]);
+
+        res.status(201).json(comments[0]);
+    } catch (error) {
+        console.error('Ошибка при добавлении комментария:', error);
+        res.status(500).json({ 
+            message: 'Ошибка при добавлении комментария',
+            error: error.message
+        });
+    }
+});
+
+// Отладочный маршрут для проверки структуры таблицы videos
+app.get('/debug/videos/structure', async (req, res) => {
+    try {
+        const [structure] = await db.promise().query('DESCRIBE videos');
+        res.json(structure);
+    } catch (error) {
+        console.error('Ошибка при проверке структуры таблицы videos:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Запуск сервера
 app.listen(PORT, () => {
-    console.log(`Сервер запущен на сервере http://localhost:${PORT}`);
+    console.log(`Сервер запущен на порту ${PORT}`);
 });

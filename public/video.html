@@ -51,12 +51,14 @@
                 </div>
             </div>
             <div class="comments-section">
-                <h3>Комментарии</h3>
-                <form id="commentForm">
-                    <input type="text" id="commentInput" placeholder="Добавить комментарий" required>
-                    <button type="submit">Отправить</button>
-                </form>
-                <div id="commentsContainer"></div>
+                <h2>Комментарии</h2>
+                <div class="add-comment">
+                    <textarea id="commentText" placeholder="Добавить комментарий..."></textarea>
+                    <button id="submitComment">Отправить</button>
+                </div>
+                <div id="commentsList" class="comments-list">
+                    <!-- Комментарии будут добавлены здесь -->
+                </div>
             </div>
         </div>
         <div class="videobar">
