@@ -276,3 +276,95 @@
     font-size: 0.9em;
     color: #666;
 }
+
+.video-meta {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin: 10px 0;
+    color: #666;
+    font-size: 14px;
+}
+
+.video-description {
+    margin: 20px 0;
+    padding: 15px 0;
+    border-top: 1px solid #eee;
+    border-bottom: 1px solid #eee;
+}
+
+.video-description h3 {
+    font-size: 16px;
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.video-description p {
+    font-size: 14px;
+    line-height: 1.5;
+    color: #333;
+    white-space: pre-wrap; /* Сохраняем переносы строк */
+}
+
+.video-author {
+    display: flex;
+    align-items: center;
+    margin: 16px 0;
+    gap: 15px;
+}
+
+.author-link {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    color: inherit;
+    gap: 10px;
+}
+
+.author-link:hover {
+    opacity: 0.8;
+}
+
+.author-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+#videoUploader {
+    font-size: 16px;
+    font-weight: 500;
+    color: #333;
+}
+
+.subscribe-button {
+    background-color: #cc0000;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    margin-left: 16px;
+}
+
+.subscribe-button:hover {
+    background-color: #990000;
+}
+
+.subscribe-button.subscribed {
+    background-color: #606060;
+}
+
+.subscribe-button.subscribed:hover {
+    background-color: #404040;
+}
+
+#subscribersCount {
+    font-size: 14px;
+    color: #606060;
+    margin-left: 8px;
+}

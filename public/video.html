@@ -42,12 +42,27 @@
             </div>
             <div class="video-details">
                 <h1 id="videoTitle"></h1>
-                <p id="videoUploader"></p>
+                <div class="video-author">
+                    <a href="#" id="authorLink" class="author-link">
+                        <img id="authorAvatar" src="images/default-avatar.png" alt="Аватар автора" class="author-avatar">
+                        <span id="videoUploader">Имя автора</span>
+                    </a>
+                    <button id="subscribeButton" class="subscribe-button">Подписаться</button>
+                    <span id="subscribersCount">0 подписчиков</span>
+                </div>
+                <div class="video-meta">
+                    <span id="videoViews">0 просмотров</span>
+                    <span id="videoDate"></span>
+                </div>
                 <div class="rating-buttons">
                     <button id="likeButton">👍</button>
                     <span id="likeCount">0</span> лайков
                     <button id="dislikeButton">👎</button>
                     <span id="dislikeCount">0</span> дизлайков
+                </div>
+                <div class="video-description">
+                    <h3>Описание</h3>
+                    <p id="videoDescription"></p>
                 </div>
             </div>
             <div class="comments-section">

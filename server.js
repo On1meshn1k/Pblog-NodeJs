@@ -832,7 +832,8 @@ app.get('/api/videos/:id', async (req, res) => {
                 c.channel_name,
                 c.channel_id,
                 u.username as uploader_name,
-                u.profile_picture_url as channel_avatar
+                u.profile_picture_url as channel_avatar,
+                u.user_id
             FROM videos v
             LEFT JOIN channels c ON v.channel_id = c.channel_id
             LEFT JOIN users u ON v.user_id = u.user_id
@@ -870,7 +871,8 @@ app.get('/api/videos/:id', async (req, res) => {
             channel_id: video.channel_id,
             channel_name: video.channel_name,
             channel_avatar: video.channel_avatar || '/images/default-avatar.png',
-            uploader_name: video.uploader_name
+            uploader_name: video.uploader_name,
+            user_id: video.user_id
         });
 
     } catch (error) {
@@ -1346,6 +1348,173 @@ app.get('/debug/videos/structure', async (req, res) => {
     } catch (error) {
         console.error('Ошибка при проверке структуры таблицы videos:', error);
         res.status(500).json({ error: error.message });
+    }
+});
+
+// Маршрут для получения информации о канале
+app.get('/api/channels/:id', async (req, res) => {
+    try {
+        const channelId = req.params.id;
+        console.log('Получен запрос на получение информации о канале:', channelId);
+
+        // Получаем информацию о канале
+        const [channels] = await db.promise().query(`
+            SELECT 
+                c.*,
+                u.username as owner_name,
+                u.profile_picture_url as channel_avatar,
+                u.user_id
+            FROM channels c
+            LEFT JOIN users u ON c.user_id = u.user_id
+            WHERE c.channel_id = ?
+        `, [channelId]);
+
+        if (channels.length === 0) {
+            console.log('Канал не найден:', channelId);
+            return res.status(404).json({ 
+                message: 'Канал не найден',
+                error: 'CHANNEL_NOT_FOUND'
+            });
+        }
+
+        const channel = channels[0];
+        console.log('Найден канал:', channel);
+
+        res.json({
+            channel_id: channel.channel_id,
+            channel_name: channel.channel_name,
+            channel_description: channel.channel_description,
+            channel_avatar: channel.channel_avatar || '/images/default-avatar.png',
+            owner_name: channel.owner_name,
+            user_id: channel.user_id,
+            subscriber_count: channel.subscriber_count || 0
+        });
+
+    } catch (error) {
+        console.error('Ошибка при получении информации о канале:', error);
+        res.status(500).json({ 
+            message: 'Ошибка при получении информации о канале',
+            error: error.message,
+            code: error.code
+        });
+    }
+});
+
+// Маршрут для получения видео канала
+app.get('/api/channels/:id/videos', async (req, res) => {
+    try {
+        const channelId = req.params.id;
+        console.log('Получен запрос на получение видео канала:', channelId);
+
+        // Получаем видео канала
+        const [videos] = await db.promise().query(`
+            SELECT 
+                v.*,
+                u.username as uploader_name
+            FROM videos v
+            LEFT JOIN users u ON v.user_id = u.user_id
+            WHERE v.channel_id = ?
+            ORDER BY v.upload_date DESC
+        `, [channelId]);
+
+        console.log('Найдено видео канала:', videos.length);
+
+        res.json(videos);
+
+    } catch (error) {
+        console.error('Ошибка при получении видео канала:', error);
+        res.status(500).json({ 
+            message: 'Ошибка при получении видео канала',
+            error: error.message,
+            code: error.code
+        });
+    }
+});
+
+// Проверка подписки пользователя на канал
+app.get('/api/channels/:channelId/subscription/:userId', async (req, res) => {
+    const { channelId, userId } = req.params;
+    
+    try {
+        const [subscription] = await db.promise().query(
+            'SELECT * FROM subscriptions WHERE channel_id = ? AND subscriber_id = ?',
+            [channelId, userId]
+        );
+        
+        res.json({ 
+            isSubscribed: subscription.length > 0,
+            subscribersCount: await getSubscribersCount(channelId)
+        });
+    } catch (error) {
+        console.error('Ошибка при проверке подписки:', error);
+        res.status(500).json({ error: 'Ошибка при проверке подписки' });
+    }
+});
+
+// Получение количества подписчиков канала
+async function getSubscribersCount(channelId) {
+    try {
+        const [result] = await db.promise().query(
+            'SELECT COUNT(*) as count FROM subscriptions WHERE channel_id = ?',
+            [channelId]
+        );
+        return result[0].count;
+    } catch (error) {
+        console.error('Ошибка при подсчете подписчиков:', error);
+        return 0;
+    }
+}
+
+// Подписка/отписка от канала
+app.post('/api/channels/:channelId/subscription', async (req, res) => {
+    const { channelId } = req.params;
+    const { userId } = req.body;
+    
+    try {
+        // Проверяем, не пытается ли пользователь подписаться на свой канал
+        const [channel] = await db.promise().query(
+            'SELECT user_id FROM channels WHERE channel_id = ?',
+            [channelId]
+        );
+        
+        if (channel.length === 0) {
+            return res.status(404).json({ error: 'Канал не найден' });
+        }
+        
+        if (channel[0].user_id === parseInt(userId)) {
+            return res.status(400).json({ error: 'Нельзя подписаться на свой канал' });
+        }
+        
+        // Проверяем текущий статус подписки
+        const [subscription] = await db.promise().query(
+            'SELECT * FROM subscriptions WHERE channel_id = ? AND subscriber_id = ?',
+            [channelId, userId]
+        );
+        
+        if (subscription.length > 0) {
+            // Если подписка существует - отписываемся
+            await db.promise().query(
+                'DELETE FROM subscriptions WHERE channel_id = ? AND subscriber_id = ?',
+                [channelId, userId]
+            );
+            res.json({ 
+                action: 'unsubscribed',
+                subscribersCount: await getSubscribersCount(channelId)
+            });
+        } else {
+            // Если подписки нет - подписываемся
+            await db.promise().query(
+                'INSERT INTO subscriptions (channel_id, subscriber_id) VALUES (?, ?)',
+                [channelId, userId]
+            );
+            res.json({ 
+                action: 'subscribed',
+                subscribersCount: await getSubscribersCount(channelId)
+            });
+        }
+    } catch (error) {
+        console.error('Ошибка при управлении подпиской:', error);
+        res.status(500).json({ error: 'Ошибка при управлении подпиской' });
     }
 });
 

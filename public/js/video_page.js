@@ -21,18 +21,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const videoDescription = document.getElementById('videoDescription');
     const videoViews = document.getElementById('videoViews');
     const uploadDate = document.getElementById('uploadDate');
-    const channelName = document.getElementById('channelName');
-    const channelAvatar = document.getElementById('channelAvatar');
-    const channelLink = document.getElementById('channelLink');
+    const videoUploader = document.getElementById('videoUploader');
+    const authorAvatar = document.getElementById('authorAvatar');
+    const authorLink = document.getElementById('authorLink');
     const errorMessage = document.getElementById('errorMessage');
-const username = document.getElementById('username');
-const upload = document.getElementById('upload');
-const logout = document.getElementById('logout');
+    const username = document.getElementById('username');
+    const upload = document.getElementById('upload');
+    const logout = document.getElementById('logout');
     const enter = document.querySelector('.auth');
     const likeButton = document.getElementById('likeButton');
     const dislikeButton = document.getElementById('dislikeButton');
     const likeCount = document.getElementById('likeCount');
     const dislikeCount = document.getElementById('dislikeCount');
+    const subscribeButton = document.getElementById('subscribeButton');
 
     // Обновляем UI в зависимости от авторизации
     if (user) {
@@ -55,6 +56,85 @@ const logout = document.getElementById('logout');
     if (enter) {
         enter.addEventListener('click', () => {
             window.location.href = 'enter.html';
+        });
+    }
+
+    // Обработчик для кнопки загрузки видео
+    if (upload) {
+        upload.addEventListener('click', () => {
+            window.location.href = 'upload_video.html';
+        });
+    }
+
+    // Функция для обновления состояния кнопки подписки
+    const updateSubscriptionButton = async (channelId) => {
+        try {
+            const user = JSON.parse(localStorage.getItem('user'));
+            if (!user) return;
+
+            const response = await fetch(`/api/channels/${channelId}/subscription/${user.user_id}`);
+            const data = await response.json();
+
+            if (subscribeButton) {
+                if (data.isSubscribed) {
+                    subscribeButton.textContent = 'Отписаться';
+                    subscribeButton.classList.add('subscribed');
+                } else {
+                    subscribeButton.textContent = 'Подписаться';
+                    subscribeButton.classList.remove('subscribed');
+                }
+                
+                // Обновляем счетчик подписчиков, если он есть на странице
+                const subscribersCount = document.getElementById('subscribersCount');
+                if (subscribersCount) {
+                    subscribersCount.textContent = `${data.subscribersCount} подписчиков`;
+                }
+            }
+        } catch (error) {
+            console.error('Ошибка при обновлении состояния подписки:', error);
+        }
+    };
+
+    // Обработчик для кнопки подписки
+    if (subscribeButton) {
+        subscribeButton.addEventListener('click', async () => {
+            const user = JSON.parse(localStorage.getItem('user'));
+            if (!user) {
+                window.location.href = 'enter.html';
+                return;
+            }
+            
+            try {
+                // Получаем ID канала из ссылки на автора
+                const channelId = authorLink.href.split('id=')[1];
+                if (!channelId) {
+                    console.error('ID канала не найден');
+                    return;
+                }
+
+                const response = await fetch(`/api/channels/${channelId}/subscription`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ userId: user.user_id })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Ошибка при управлении подпиской');
+                }
+
+                const result = await response.json();
+                console.log('Результат управления подпиской:', result);
+
+                // Обновляем состояние кнопки подписки
+                await updateSubscriptionButton(channelId);
+
+            } catch (error) {
+                console.error('Ошибка при управлении подпиской:', error);
+                alert(error.message || 'Произошла ошибка при попытке подписки');
+            }
         });
     }
 
@@ -249,75 +329,64 @@ const logout = document.getElementById('logout');
                 'mpg': 'video/mpeg'
             };
 
-            const mimeType = mimeTypes[ext];
-            if (!mimeType) {
-                throw new Error('Неподдерживаемый формат видео');
-            }
+            const mimeType = mimeTypes[ext] || 'video/mp4';
 
             // Проверяем поддержку формата
             if (!canPlayType(videoPlayer, mimeType)) {
-                // Если формат не поддерживается, пробуем MP4
-                if (mimeType !== 'video/mp4') {
-                    const mp4Url = video.video_url.replace(/\.[^.]+$/, '.mp4');
-                    if (canPlayType(videoPlayer, 'video/mp4')) {
-                        videoPlayer.src = mp4Url;
-                        videoPlayer.type = 'video/mp4';
-                    } else {
-                        throw new Error('Браузер не поддерживает формат видео. Пожалуйста, используйте современный браузер.');
-                    }
-                } else {
-                    throw new Error('Браузер не поддерживает формат видео. Пожалуйста, используйте современный браузер.');
-                }
-    } else {
-                videoPlayer.src = video.video_url;
-                videoPlayer.type = mimeType;
+                console.warn(`Формат ${mimeType} не поддерживается браузером`);
             }
 
-            // Обновляем информацию на странице
+            // Устанавливаем источник видео
+            videoPlayer.src = video.video_url;
+            videoPlayer.type = mimeType;
+
+            // Заполняем информацию о видео
             if (videoTitle) videoTitle.textContent = video.title;
-            if (videoDescription) videoDescription.textContent = video.description;
-            if (videoViews) videoViews.textContent = formatViews(video.views);
+            if (videoDescription) videoDescription.textContent = video.description || 'Описание отсутствует';
+            if (videoViews) videoViews.textContent = formatViews(video.views || 0);
             if (uploadDate) uploadDate.textContent = formatDate(video.upload_date);
-            if (channelName) channelName.textContent = video.channel_name;
-            if (channelAvatar) channelAvatar.src = video.channel_avatar || '/images/default-avatar.png';
-            if (channelLink) channelLink.href = `/channel.html?id=${video.channel_id}`;
+            if (videoUploader) videoUploader.textContent = video.uploader_name || 'Неизвестный автор';
+            if (authorAvatar) authorAvatar.src = video.channel_avatar || 'images/default-avatar.png';
 
-            // Загружаем видео
-            if (videoPlayer) {
-                videoPlayer.load();
-                console.log('Видео загружено:', video.video_url);
-            }
-
-            // Увеличиваем счетчик просмотров
-            const user = JSON.parse(localStorage.getItem('user'));
-            if (user && user.user_id) {
-                try {
-                    const viewResponse = await fetch(`/api/videos/${videoId}/view`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ user_id: user.user_id })
-                    });
-
-                    if (!viewResponse.ok) {
-                        console.error('Ошибка при регистрации просмотра:', await viewResponse.json());
-                    } else {
-                        const result = await viewResponse.json();
-                        if (result.viewCount > 0) {
-                            // Обновляем счетчик просмотров на странице
-                            if (videoViews) {
-                                videoViews.textContent = formatViews(video.views + 1);
-                            }
-                        }
-                    }
-                } catch (error) {
-                    console.error('Ошибка при регистрации просмотра:', error);
+            // Проверяем, является ли текущий пользователь владельцем канала
+            const currentUser = JSON.parse(localStorage.getItem("user") || "null");
+            if (subscribeButton) {
+                if (currentUser && video.user_id === currentUser.user_id) {
+                    // Если пользователь просматривает свой канал, скрываем кнопку подписки
+                    subscribeButton.style.display = "none";
+                    console.log("Пользователь просматривает свой канал, кнопка подписки скрыта");
+                } else {
+                    // Если пользователь просматривает чужой канал, показываем кнопку подписки
+                    subscribeButton.style.display = "block";
+                    console.log("Пользователь просматривает чужой канал, кнопка подписки показана");
+                    // Обновляем состояние кнопки подписки
+                    await updateSubscriptionButton(video.channel_id);
                 }
             }
 
-            // Загружаем рейтинг после загрузки видео
+            // Устанавливаем ссылку на канал автора в зависимости от того, является ли текущий пользователь автором
+            if (authorLink && video.channel_id) {
+                if (currentUser && video.user_id === currentUser.user_id) {
+                    // Если текущий пользователь является автором видео, перенаправляем на channel.html
+                    authorLink.href = `/channel.html?id=${video.channel_id}`;
+                    console.log('Установлена ссылка на личный канал:', `/channel.html?id=${video.channel_id}`);
+                } else {
+                    // Если текущий пользователь не является автором видео, перенаправляем на channel_view.html
+                    authorLink.href = `/channel_view.html?id=${video.channel_id}`;
+                    console.log('Установлена ссылка на канал автора:', `/channel_view.html?id=${video.channel_id}`);
+                }
+            } else {
+                console.warn('Не удалось установить ссылку на канал автора: channel_id отсутствует');
+            }
+
+            // Обновляем рейтинг
             await updateRatings();
+
+            // Загружаем другие видео
+            await loadOtherVideos();
+
+            // Загружаем комментарии
+            await loadComments();
 
         } catch (error) {
             console.error('Ошибка при загрузке видео:', error);
@@ -412,7 +481,6 @@ const logout = document.getElementById('logout');
 
     // Загружаем видео и другие видео при загрузке страницы
     loadVideo();
-    loadOtherVideos();
 
     // Функция для загрузки комментариев
     const loadComments = async () => {
