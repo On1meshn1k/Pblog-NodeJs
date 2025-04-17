@@ -76,12 +76,20 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
 
             if (subscribeButton) {
-                if (data.isSubscribed) {
-                    subscribeButton.textContent = 'Отписаться';
-                    subscribeButton.classList.add('subscribed');
+                // Проверяем, является ли текущий пользователь владельцем канала
+                const isOwner = data.channelOwnerId === user.user_id;
+                
+                if (isOwner) {
+                    subscribeButton.style.display = 'none'; // Скрываем кнопку для владельца
                 } else {
-                    subscribeButton.textContent = 'Подписаться';
-                    subscribeButton.classList.remove('subscribed');
+                    subscribeButton.style.display = 'block'; // Показываем кнопку для других пользователей
+                    if (data.isSubscribed) {
+                        subscribeButton.textContent = 'Отписаться';
+                        subscribeButton.classList.add('subscribed');
+                    } else {
+                        subscribeButton.textContent = 'Подписаться';
+                        subscribeButton.classList.remove('subscribed');
+                    }
                 }
                 
                 // Обновляем счетчик подписчиков, если он есть на странице

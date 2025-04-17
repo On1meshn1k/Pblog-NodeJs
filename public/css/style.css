@@ -124,10 +124,6 @@ nav {
     flex-wrap: wrap;
 }
 
-.shortcut-links a:first-child {
-    color: rgb(43, 188, 255);
-}
-
 .sidebar hr {
     border: 0;
     height: 1px;

@@ -207,7 +207,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             <a href="/video.html?id=${video.video_id}" class="video-link">
                 <div class="video-thumbnail">
                     <img src="${video.thumbnail_url}" alt="${video.title}">
-                    <span class="video-duration">${formatDuration(video.duration)}</span>
                 </div>
                 <div class="video-info">
                     <h3 class="video-title">${video.title}</h3>

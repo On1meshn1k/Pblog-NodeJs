@@ -1544,6 +1544,16 @@ app.get('/api/channels/:channelId/subscription/:userId', async (req, res) => {
     const { channelId, userId } = req.params;
     
     try {
+        // Получаем информацию о канале и подписке
+        const [channel] = await db.promise().query(
+            'SELECT user_id FROM channels WHERE channel_id = ?',
+            [channelId]
+        );
+        
+        if (channel.length === 0) {
+            return res.status(404).json({ error: 'Канал не найден' });
+        }
+
         const [subscription] = await db.promise().query(
             'SELECT * FROM subscriptions WHERE channel_id = ? AND subscriber_id = ?',
             [channelId, userId]
@@ -1551,7 +1561,8 @@ app.get('/api/channels/:channelId/subscription/:userId', async (req, res) => {
         
         res.json({ 
             isSubscribed: subscription.length > 0,
-            subscribersCount: await getSubscribersCount(channelId)
+            subscribersCount: await getSubscribersCount(channelId),
+            channelOwnerId: channel[0].user_id
         });
     } catch (error) {
         console.error('Ошибка при проверке подписки:', error);
