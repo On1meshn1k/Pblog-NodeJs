@@ -79,23 +79,74 @@ document.addEventListener("DOMContentLoaded", function() { // Убедимся, 
 
   // Функция для создания элемента видео
   function createVideoElement(video) {
-    const videoItem = document.createElement('div');
-    videoItem.className = 'video-item';
-    
-    videoItem.innerHTML = `
-      <img src="${video.thumbnail_url}" alt="${video.title}">
-      <div class="video-info">
-        <h3>${video.title}</h3>
-        <p>${video.views} просмотров</p>
-        <p class="upload-date">Загружено: ${new Date(video.upload_date).toLocaleDateString()}</p>
-      </div>
+    const videoElement = document.createElement('div');
+    videoElement.className = 'video-item';
+    videoElement.innerHTML = `
+        <a href="video.html?id=${video.video_id}">
+            <img src="${video.thumbnail_url}" alt="${video.title}">
+            <h3>${video.title}</h3>
+            <p>${video.views} просмотров</p>
+            <p>${new Date(video.upload_date).toLocaleDateString()}</p>
+        </a>
+        <div class="video-actions">
+            <button class="delete-video-btn" data-video-id="${video.video_id}">
+                <i class="fas fa-trash"></i> Удалить
+            </button>
+        </div>
     `;
-    
-    videoItem.addEventListener('click', () => {
-      window.location.href = `video.html?id=${video.video_id}`;
+
+    // Добавляем обработчик для кнопки удаления
+    const deleteBtn = videoElement.querySelector('.delete-video-btn');
+    deleteBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        if (confirm('Вы уверены, что хотите удалить это видео?')) {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    alert('Требуется авторизация');
+                    return;
+                }
+
+                const response = await fetch(`/api/videos/${video.video_id}/owner`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': token,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                // Сначала проверяем статус авторизации
+                if (response.status === 401 || response.status === 403) {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    window.location.href = '/';
+                    return;
+                }
+
+                // Затем проверяем общий статус ответа
+                if (!response.ok) {
+                    let errorMessage = 'Ошибка при удалении видео';
+                    try {
+                        const error = await response.json();
+                        errorMessage = error.error || errorMessage;
+                    } catch (e) {
+                        // Если не удалось распарсить JSON, используем стандартное сообщение
+                        console.error('Ошибка при парсинге ответа:', e);
+                    }
+                    throw new Error(errorMessage);
+                }
+
+                // Если всё успешно, удаляем видео со страницы
+                videoElement.remove();
+                alert('Видео успешно удалено');
+            } catch (error) {
+                console.error('Ошибка при удалении видео:', error);
+                alert(error.message);
+            }
+        }
     });
-    
-    return videoItem;
+
+    return videoElement;
   }
 
   if (isLoggedIn) {
@@ -138,6 +189,8 @@ document.addEventListener("DOMContentLoaded", function() { // Убедимся, 
     logoutButton.style.display = "none"; // Скрыть кнопку выхода
     channelNameSpan.textContent = ""; // Очищаем имя канала
     channelLogo.src = "images/default-avatar.png"; // Устанавливаем стандартную аватарку
+    alert("Пожалуйста, авторизуйтесь для просмотра канала");
+    window.location.href = "enter.html";
   }
   
   // Переход на страницу редактирования профиля

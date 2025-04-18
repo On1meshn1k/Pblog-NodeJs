@@ -1,21 +1,16 @@
 // load_videos.js
 
 const videoListContainer = document.getElementById("videoList");
+const searchInput = document.getElementById("searchInput");
+const searchButton = document.getElementById("searchButton");
 
-async function fetchVideos() {
-    try {
-        const response = await fetch("http://localhost:3000/api/videos"); // Маршрут вашего сервера
-        if (!response.ok) throw new Error("Ошибка загрузки видео");
-
-        const videos = await response.json();
-        renderVideos(videos);
-    } catch (error) {
-        console.error(error);
-        videoListContainer.innerHTML = "<p>Ошибка загрузки видео</p>";
-    }
-}
-
+// Функция для отображения видео
 function renderVideos(videos) {
+    if (videos.length === 0) {
+        videoListContainer.innerHTML = "<p>Видео не найдены</p>";
+        return;
+    }
+
     videoListContainer.innerHTML = videos
         .map(
             (video) => `
@@ -33,6 +28,42 @@ function renderVideos(videos) {
         .join("");
 }
 
+// Обработчик поиска
+if (searchInput) {
+    // Обработка нажатия Enter
+    searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            const searchQuery = e.target.value.trim();
+            fetchVideos(searchQuery);
+        }
+    });
+}
+
+// Обработка клика по кнопке поиска
+if (searchButton) {
+    searchButton.addEventListener('click', () => {
+        const searchQuery = searchInput.value.trim();
+        fetchVideos(searchQuery);
+    });
+}
+
+async function fetchVideos(searchQuery = '') {
+    try {
+        const url = new URL('/api/videos', window.location.origin);
+        if (searchQuery) {
+            url.searchParams.append('search', searchQuery);
+        }
+
+        const response = await fetch(url);
+        if (!response.ok) throw new Error("Ошибка загрузки видео");
+
+        const videos = await response.json();
+        renderVideos(videos);
+    } catch (error) {
+        console.error(error);
+        videoListContainer.innerHTML = "<p>Ошибка загрузки видео</p>";
+    }
+}
 
 // Запуск функции
 fetchVideos();

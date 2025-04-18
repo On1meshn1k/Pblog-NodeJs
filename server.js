@@ -50,6 +50,13 @@ const storage = multer.diskStorage({
         } else if (file.fieldname === 'thumbnail') {
             dir = 'public/uploads/thumbnails';
         }
+        
+        // Проверяем и создаем директорию, если её нет
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+            console.log(`Создана директория: ${dir}`);
+        }
+        
         cb(null, dir);
     },
     filename: function (req, file, cb) {
@@ -136,18 +143,25 @@ app.use('/uploads', (req, res, next) => {
     next();
 });
 
-app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
-app.use('/uploads/videos', express.static(path.join(__dirname, 'public/uploads/videos')));
-app.use('/uploads/thumbnails', express.static(path.join(__dirname, 'public/uploads/thumbnails')));
-app.use('/uploads/avatars', express.static(path.join(__dirname, 'public/uploads/avatars')));
-
 // Middleware для конвертации видео в MP4 при необходимости
 app.use('/uploads/videos', async (req, res, next) => {
     const filePath = path.join(__dirname, 'public', req.path);
+    
+    // Проверяем существование файла
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).send('Файл не найден');
+    }
+
+    const ext = path.extname(filePath).toLowerCase();
     const mp4Path = filePath.replace(/\.[^.]+$/, '.mp4');
 
+    // Если файл уже MP4, просто отдаем его
+    if (ext === '.mp4') {
+        return next();
+    }
+
     // Если запрашивается не MP4 файл и MP4 версия не существует
-    if (!filePath.endsWith('.mp4') && !fs.existsSync(mp4Path)) {
+    if (!fs.existsSync(mp4Path)) {
         try {
             await new Promise((resolve, reject) => {
                 ffmpeg(filePath)
@@ -166,11 +180,24 @@ app.use('/uploads/videos', async (req, res, next) => {
             });
         } catch (error) {
             console.error('Ошибка при конвертации видео:', error);
-            // Продолжаем обработку запроса, даже если конвертация не удалась
+            // Если конвертация не удалась, отдаем оригинальный файл
+            return next();
         }
     }
+
+    // Если запрашивается не MP4 файл, но MP4 версия существует
+    if (ext !== '.mp4' && fs.existsSync(mp4Path)) {
+        req.url = req.url.replace(/\.[^.]+$/, '.mp4');
+    }
+
     next();
 });
+
+// Обслуживание статических файлов
+app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
+app.use('/uploads/videos', express.static(path.join(__dirname, 'public/uploads/videos')));
+app.use('/uploads/thumbnails', express.static(path.join(__dirname, 'public/uploads/thumbnails')));
+app.use('/uploads/avatars', express.static(path.join(__dirname, 'public/uploads/avatars')));
 
 // Подключение к базе данных
 db.connect((err) => {
@@ -179,7 +206,39 @@ db.connect((err) => {
         return;
     }
     console.log('Подключено к базе данных MySQL');
+
+    // Проверяем и добавляем поле is_admin
+    checkAndAddAdminField();
 });
+
+// Функция для проверки и добавления поля is_admin
+const checkAndAddAdminField = async () => {
+    try {
+        // Проверяем существование поля is_admin
+        const [columns] = await db.promise().query(`
+            SHOW COLUMNS FROM users LIKE 'is_admin'
+        `);
+
+        if (columns.length === 0) {
+            // Добавляем поле is_admin, если его нет
+            await db.promise().query(`
+                ALTER TABLE users 
+                ADD COLUMN is_admin BOOLEAN DEFAULT FALSE
+            `);
+
+            // Делаем первого пользователя администратором
+            await db.promise().query(`
+                UPDATE users 
+                SET is_admin = TRUE 
+                WHERE user_id = 1
+            `);
+
+            console.log('Поле is_admin успешно добавлено в таблицу users');
+        }
+    } catch (error) {
+        console.error('Ошибка при проверке поля is_admin:', error);
+    }
+};
 
 // Создаем таблицу videos, если она не существует
 const createVideosTable = `
@@ -273,7 +332,7 @@ db.query(createChannelsTable, (err) => {
 const createCommentsTable = `
 CREATE TABLE IF NOT EXISTS comments (
     comment_id serial PRIMARY KEY,
-    video_id INT REFERENCES videos(video_id) ON DELETE CASCADE,
+    video_id INT REFERENCES videos(video_id),
     user_id INT REFERENCES users(user_id) ON DELETE SET NULL,
     comment_text TEXT NOT NULL,
     comment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -292,9 +351,86 @@ app.get("/", (req, res) => {
     res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-// Роут для получения списка видео
+// Middleware для проверки прав администратора
+const checkAdmin = async (req, res, next) => {
+    try {
+        const token = req.headers.authorization?.split(' ')[1];
+        if (!token) {
+            return res.status(401).json({ error: 'Требуется авторизация' });
+        }
+
+        const decoded = jwt.verify(token, SECRET_KEY);
+        const [users] = await db.promise().query('SELECT is_admin FROM users WHERE user_id = ?', [decoded.userId]);
+
+        if (users.length === 0 || !users[0].is_admin) {
+            return res.status(403).json({ error: 'Доступ запрещен' });
+        }
+
+        req.user = decoded;
+        next();
+    } catch (error) {
+        console.error('Ошибка при проверке прав администратора:', error);
+        res.status(401).json({ error: 'Недействительный токен' });
+    }
+};
+
+// Публичный роут для получения списка видео
 app.get("/api/videos", (req, res) => {
     console.log('Получен запрос на список видео');
+    const searchQuery = req.query.search || '';
+    
+    let query = `
+        SELECT 
+            v.video_id,
+            v.title,
+            v.description,
+            v.video_url,
+            v.thumbnail_url,
+            v.upload_date,
+            v.views,
+            u.username as uploader_name,
+            c.channel_name,
+            c.logo_url
+        FROM videos v
+        LEFT JOIN users u ON v.user_id = u.user_id
+        LEFT JOIN channels c ON v.channel_id = c.channel_id
+    `;
+
+    if (searchQuery) {
+        query += ` WHERE v.title LIKE ? OR v.description LIKE ? OR c.channel_name LIKE ?`;
+    }
+
+    query += ` ORDER BY v.upload_date DESC`;
+
+    console.log('Выполняется SQL запрос:', query);
+
+    const searchParam = `%${searchQuery}%`;
+    const params = searchQuery ? [searchParam, searchParam, searchParam] : [];
+
+    db.query(query, params, (err, results) => {
+        if (err) {
+            console.error('Ошибка при получении видео:', {
+                message: err.message,
+                code: err.code,
+                sqlMessage: err.sqlMessage,
+                sqlState: err.sqlState,
+                stack: err.stack
+            });
+            return res.status(500).json({ 
+                error: 'Ошибка при получении списка видео',
+                details: err.message,
+                code: err.code,
+                sqlMessage: err.sqlMessage
+            });
+        }
+        console.log('Успешно получено видео:', results.length);
+        res.json(results);
+    });
+});
+
+// Защищенный роут для получения списка видео (для админ-панели)
+app.get("/api/admin/videos", checkAdmin, (req, res) => {
+    console.log('Получен запрос на список видео для админ-панели');
     const query = `
         SELECT 
             v.video_id,
@@ -476,14 +612,26 @@ app.post("/login", async (req, res) => {
             [user.user_id]
         );
 
+        // Генерируем JWT токен
+        const token = jwt.sign(
+            { 
+                userId: user.user_id,
+                isAdmin: user.is_admin
+            }, 
+            SECRET_KEY,
+            { expiresIn: '24h' }
+        );
+
         res.status(200).json({
-                message: "Успешный вход",
-                user: {
+            message: "Успешный вход",
+            token,
+            user: {
                 user_id: user.user_id,
-                    username: user.username,
+                username: user.username,
                 email: user.email,
                 profile_picture_url: user.profile_picture_url,
                 is_verified: user.is_verified,
+                is_admin: user.is_admin,
                 channel: channels[0] || null
             }
         });
@@ -499,17 +647,24 @@ app.post("/login", async (req, res) => {
 
 // Middleware для проверки токена
 const authenticateToken = (req, res, next) => {
-    const token = req.header('Authorization');
+    const authHeader = req.headers.authorization;
+    console.log('Authorization header:', authHeader); // Добавляем логирование
 
-    if (!token) {
-        return res.status(403).send('Доступ запрещен');
+    if (!authHeader) {
+        console.log('No authorization header');
+        return res.status(403).json({ error: 'Требуется авторизация' });
     }
+
+    const token = authHeader;
+    console.log('Token:', token); // Добавляем логирование
 
     jwt.verify(token, SECRET_KEY, (err, user) => {
         if (err) {
-            return res.status(403).send('Неверный или просроченный токен');
+            console.log('Token verification error:', err); // Добавляем логирование
+            return res.status(403).json({ error: 'Неверный или просроченный токен' });
         }
 
+        console.log('Token verified successfully, user:', user); // Добавляем логирование
         req.user = user;
         next();
     });
@@ -568,9 +723,27 @@ app.post('/upload', uploadVideo.fields([{ name: 'video', maxCount: 1 }, { name: 
 
         // Конвертируем видео в MP4 формат, если это не MP4
         const inputPath = videoFile.path;
-        const outputPath = inputPath.replace(path.extname(inputPath), '.mp4');
+        console.log('Путь к загруженному файлу:', inputPath);
         
-        if (!inputPath.endsWith('.mp4')) {
+        // Проверяем существование файла
+        if (!fs.existsSync(inputPath)) {
+            console.error('Файл не найден по пути:', inputPath);
+            return res.status(500).json({ 
+                message: 'Ошибка при загрузке видео: файл не найден', 
+                error: 'FILE_NOT_FOUND' 
+            });
+        }
+
+        // Сохраняем оригинальное расширение файла
+        const originalExt = path.extname(inputPath).toLowerCase();
+        const outputPath = inputPath.replace(originalExt, '.mp4');
+        let finalVideoPath = inputPath;
+        
+        // Если файл уже в формате MP4 (независимо от регистра)
+        if (originalExt === '.mp4') {
+            console.log('Файл уже в формате MP4, конвертация не требуется');
+            finalVideoPath = inputPath;
+        } else {
             try {
                 await new Promise((resolve, reject) => {
                     ffmpeg(inputPath)
@@ -580,6 +753,8 @@ app.post('/upload', uploadVideo.fields([{ name: 'video', maxCount: 1 }, { name: 
                         .on('end', () => {
                             // Удаляем оригинальный файл
                             fs.unlinkSync(inputPath);
+                            finalVideoPath = outputPath;
+                            console.log('Видео успешно конвертировано в MP4:', finalVideoPath);
                             resolve();
                         })
                         .on('error', (err) => {
@@ -591,14 +766,25 @@ app.post('/upload', uploadVideo.fields([{ name: 'video', maxCount: 1 }, { name: 
             } catch (error) {
                 console.error('Ошибка при конвертации видео:', error);
                 // Если конвертация не удалась, используем оригинальный файл
-                outputPath = inputPath;
+                finalVideoPath = inputPath;
             }
         }
 
-        const videoUrl = `/uploads/videos/${path.basename(outputPath)}`;
+        // Проверяем существование финального файла
+        if (!fs.existsSync(finalVideoPath)) {
+            console.error('Финальный файл не найден по пути:', finalVideoPath);
+            return res.status(500).json({ 
+                message: 'Ошибка при загрузке видео: финальный файл не найден', 
+                error: 'FINAL_FILE_NOT_FOUND' 
+            });
+        }
+
+        const videoUrl = `/uploads/videos/${path.basename(finalVideoPath)}`;
         const thumbnailUrl = `/uploads/thumbnails/${thumbnailFile.filename}`;
 
         console.log('Сохранение информации о видео в базу данных');
+        console.log('Путь к видео:', videoUrl);
+        console.log('Путь к обложке:', thumbnailUrl);
         console.log('SQL параметры:', [user_id, user.channel_id, title, description, videoUrl, thumbnailUrl]);
 
         const [result] = await db.promise().query(
@@ -1652,6 +1838,182 @@ app.get('/api/users/:userId/subscriptions', async (req, res) => {
     } catch (error) {
         console.error('Ошибка при получении подписок:', error);
         res.status(500).json({ error: 'Ошибка при получении подписок' });
+    }
+});
+
+// Получение всех комментариев
+app.get('/api/comments', checkAdmin, async (req, res) => {
+    try {
+        const [comments] = await db.promise().query(`
+            SELECT c.*, u.username 
+            FROM comments c 
+            JOIN users u ON c.user_id = u.user_id 
+            ORDER BY c.comment_date DESC
+        `);
+        res.json(comments);
+    } catch (error) {
+        console.error('Ошибка при получении комментариев:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// Удаление комментария
+app.delete('/api/comments/:id', checkAdmin, async (req, res) => {
+    try {
+        // Сначала проверяем существование комментария
+        const [comment] = await db.promise().query('SELECT * FROM comments WHERE comment_id = ?', [req.params.id]);
+        
+        if (comment.length === 0) {
+            return res.status(404).json({ error: 'Комментарий не найден' });
+        }
+
+        // Удаляем только комментарий, без каскадного удаления
+        await db.promise().query('DELETE FROM comments WHERE comment_id = ?', [req.params.id]);
+        
+        res.json({ 
+            message: 'Комментарий успешно удален',
+            comment_id: req.params.id
+        });
+    } catch (error) {
+        console.error('Ошибка при удалении комментария:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// Получение всех пользователей
+app.get('/api/users', checkAdmin, async (req, res) => {
+    try {
+        const [users] = await db.promise().query('SELECT user_id, username, email, is_admin FROM users');
+        res.json(users);
+    } catch (error) {
+        console.error('Ошибка при получении пользователей:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// Удаление пользователя
+app.delete('/api/users/:id', checkAdmin, async (req, res) => {
+    try {
+        const userId = req.params.id;
+        const [user] = await db.promise().query('SELECT is_admin FROM users WHERE user_id = ?', [userId]);
+
+        if (user.length === 0) {
+            return res.status(404).json({ error: 'Пользователь не найден' });
+        }
+
+        if (user[0].is_admin) {
+            return res.status(403).json({ error: 'Нельзя удалить администратора' });
+        }
+
+        await db.promise().query('DELETE FROM users WHERE user_id = ?', [userId]);
+        res.json({ message: 'Пользователь успешно удален' });
+    } catch (error) {
+        console.error('Ошибка при удалении пользователя:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// Изменение прав администратора
+app.put('/api/users/:id/admin', checkAdmin, async (req, res) => {
+    try {
+        const userId = req.params.id;
+        const { is_admin } = req.body;
+
+        await db.promise().query('UPDATE users SET is_admin = ? WHERE user_id = ?', [is_admin, userId]);
+        res.json({ message: 'Права администратора успешно изменены' });
+    } catch (error) {
+        console.error('Ошибка при изменении прав администратора:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// Роут для админ-панели
+app.get('/admin.html', checkAdmin, (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+// Удаление видео
+app.delete('/api/videos/:videoId/owner', authenticateToken, async (req, res) => {
+    try {
+        const videoId = req.params.videoId;
+        const userId = req.user.userId;
+
+        // Получаем информацию о видео
+        const [video] = await db.promise().query(
+            'SELECT * FROM videos WHERE video_id = ? AND user_id = ?',
+            [videoId, userId]
+        );
+
+        if (video.length === 0) {
+            return res.status(404).json({ error: 'Видео не найдено или вы не являетесь владельцем' });
+        }
+
+        // Получаем пути к файлам
+        const videoPath = path.join(__dirname, 'public', video[0].video_url);
+        const thumbnailPath = path.join(__dirname, 'public', video[0].thumbnail_url);
+
+        // Удаляем файлы
+        if (fs.existsSync(videoPath)) {
+            fs.unlinkSync(videoPath);
+        }
+        if (fs.existsSync(thumbnailPath)) {
+            fs.unlinkSync(thumbnailPath);
+        }
+
+        // Удаляем записи из базы данных
+        await db.promise().query('DELETE FROM video_likes WHERE video_id = ?', [videoId]);
+        await db.promise().query('DELETE FROM video_dislikes WHERE video_id = ?', [videoId]);
+        await db.promise().query('DELETE FROM comments WHERE video_id = ?', [videoId]);
+        await db.promise().query('DELETE FROM video_views WHERE video_id = ?', [videoId]);
+        await db.promise().query('DELETE FROM playlist_videos WHERE video_id = ?', [videoId]);
+        await db.promise().query('DELETE FROM videos WHERE video_id = ?', [videoId]);
+
+        res.json({ message: 'Видео успешно удалено' });
+    } catch (error) {
+        console.error('Ошибка при удалении видео:', error);
+        res.status(500).json({ error: 'Ошибка при удалении видео' });
+    }
+});
+
+// Удаление видео администратором
+app.delete('/api/videos/:videoId/admin', checkAdmin, async (req, res) => {
+    try {
+        const videoId = req.params.videoId;
+
+        // Получаем информацию о видео
+        const [video] = await db.promise().query(
+            'SELECT * FROM videos WHERE video_id = ?',
+            [videoId]
+        );
+
+        if (video.length === 0) {
+            return res.status(404).json({ error: 'Видео не найдено' });
+        }
+
+        // Получаем пути к файлам
+        const videoPath = path.join(__dirname, 'public', video[0].video_url);
+        const thumbnailPath = path.join(__dirname, 'public', video[0].thumbnail_url);
+
+        // Удаляем файлы
+        if (fs.existsSync(videoPath)) {
+            fs.unlinkSync(videoPath);
+        }
+        if (fs.existsSync(thumbnailPath)) {
+            fs.unlinkSync(thumbnailPath);
+        }
+
+        // Удаляем записи из базы данных
+        await db.promise().query('DELETE FROM video_likes WHERE video_id = ?', [videoId]);
+        await db.promise().query('DELETE FROM video_dislikes WHERE video_id = ?', [videoId]);
+        await db.promise().query('DELETE FROM comments WHERE video_id = ?', [videoId]);
+        await db.promise().query('DELETE FROM video_views WHERE video_id = ?', [videoId]);
+        await db.promise().query('DELETE FROM playlist_videos WHERE video_id = ?', [videoId]);
+        await db.promise().query('DELETE FROM videos WHERE video_id = ?', [videoId]);
+
+        res.json({ message: 'Видео успешно удалено' });
+    } catch (error) {
+        console.error('Ошибка при удалении видео:', error);
+        res.status(500).json({ error: 'Ошибка при удалении видео' });
     }
 });
 

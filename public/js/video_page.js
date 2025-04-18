@@ -434,17 +434,59 @@ document.addEventListener('DOMContentLoaded', () => {
 
         videoPlayer.addEventListener('error', (e) => {
             console.error('Ошибка при воспроизведении видео:', e);
+            const error = videoPlayer.error;
+            let errorMessageText = 'Ошибка при воспроизведении видео. ';
+            
+            if (error) {
+                switch(error.code) {
+                    case 1:
+                        errorMessageText += 'Видео не найдено или недоступно.';
+                        break;
+                    case 2:
+                        errorMessageText += 'Ошибка сети при загрузке видео.';
+                        break;
+                    case 3:
+                        errorMessageText += 'Ошибка декодирования видео.';
+                        break;
+                    case 4:
+                        errorMessageText += 'Видео не поддерживается вашим браузером.';
+                        break;
+                    default:
+                        errorMessageText += 'Неизвестная ошибка.';
+                }
+            }
+            
             if (errorMessage) {
-                errorMessage.textContent = 'Ошибка при воспроизведении видео. Пожалуйста, попробуйте позже.';
+                errorMessage.textContent = errorMessageText;
+                errorMessage.style.display = 'block';
+            }
+            
+            // Пробуем перезагрузить видео через 5 секунд
+            setTimeout(() => {
+                videoPlayer.load();
+            }, 5000);
+        });
+
+        videoPlayer.addEventListener('stalled', () => {
+            console.warn('Загрузка видео остановлена');
+            if (errorMessage) {
+                errorMessage.textContent = 'Загрузка видео остановлена. Пожалуйста, проверьте подключение к интернету.';
                 errorMessage.style.display = 'block';
             }
         });
 
-        videoPlayer.addEventListener('stalled', () => {
-            console.log('Загрузка видео остановлена');
+        videoPlayer.addEventListener('waiting', () => {
+            console.log('Видео буферизируется...');
             if (errorMessage) {
-                errorMessage.textContent = 'Загрузка видео остановлена. Пожалуйста, проверьте подключение к интернету.';
+                errorMessage.textContent = 'Видео загружается...';
                 errorMessage.style.display = 'block';
+            }
+        });
+
+        videoPlayer.addEventListener('playing', () => {
+            console.log('Воспроизведение видео началось');
+            if (errorMessage) {
+                errorMessage.style.display = 'none';
             }
         });
     }

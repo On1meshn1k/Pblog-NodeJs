@@ -153,3 +153,30 @@ img {
 .edit-profile-btn:hover {
     background-color: #26a3dd;
 }
+
+.video-actions {
+    margin-top: 10px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.delete-video-btn {
+    background-color: #ff4444;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: background-color 0.3s;
+    
+}
+
+.delete-video-btn:hover {
+    background-color: #cc0000;
+}
+
+.delete-video-btn i {
+    font-size: 14px;
+}

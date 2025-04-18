@@ -91,8 +91,11 @@ signInForm.addEventListener("submit", async function(event) {
             throw new Error(data.message || "Неправильный email или пароль");
         }
 
-        // Только если вход успешен
+        // Сохраняем данные пользователя и токен
         localStorage.setItem("user", JSON.stringify(data.user));
+        localStorage.setItem("token", data.token);
+        
+        // Перенаправляем на главную страницу
         window.location.href = "/";
 
     } catch (error) {
