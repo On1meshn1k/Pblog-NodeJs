@@ -7,6 +7,92 @@
 
 .comments-section {
     margin-top: 20px;
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.comments-section h2 {
+    margin-bottom: 20px;
+    color: #333;
+}
+
+.add-comment {
+    margin-bottom: 20px;
+    gap: 10px;
+}
+
+.add-comment textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    resize: none;
+    min-height: 80px;
+    margin-bottom: 10px;
+    font-family: inherit;
+}
+
+.add-comment button {
+    background-color: #065fd4;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.add-comment button:hover {
+    background-color: #0043a0;
+}
+
+.comments-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.comment {
+    display: flex;
+    gap: 15px;
+    padding: 15px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+}
+
+.comment-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.comment-content {
+    flex: 1;
+}
+
+.comment-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 5px;
+}
+
+.comment-username {
+    font-weight: bold;
+    color: #333;
+}
+
+.comment-date {
+    color: #666;
+    font-size: 12px;
+}
+
+.comment-text {
+    color: #333;
+    line-height: 1.4;
 }
 
 #commentForm {
@@ -27,11 +113,6 @@
     overflow-y: auto;
 }
 
-.comment {
-    padding: 10px;
-    border-bottom: 1px solid #ccc;
-}
-
 #likeButton {
     cursor: pointer;
     padding: 10px;
@@ -42,14 +123,117 @@
 }
 
 .videobar {
-    width: 300px;
+    width: 30%;
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     margin-left: 20px;
-    float: right;
 }
 
 .videobar h3 {
-    font-size: 1.5em;
-    margin-bottom: 10px;
+    margin-bottom: 20px;
+    color: #333;
+}
+
+.videobar .video-item {
+    margin-bottom: 20px;
+    border-radius: 8px;
+    overflow: hidden;
+    transition: transform 0.2s;
+    width: 100%;
+    display: flex;
+    gap: 10px;
+}
+
+.videobar .video-item:hover {
+    transform: translateY(-5px);
+}
+
+.videobar .video-link {
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    width: 100%;
+    gap: 10px;
+}
+
+.videobar .thumbnail-container {
+    position: relative;
+    width: 168px;
+    height: 94px;
+    background-color: #000;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.videobar .video-thumbnail {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 8px;
+    display: block;
+}
+
+.videobar .video-info {
+    padding: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.videobar .video-author-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 5px;
+}
+
+.videobar .video-author-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.videobar .video-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 5px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.videobar .video-uploader {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 3px;
+}
+
+.videobar .video-views {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 3px;
+}
+
+.videobar .video-date {
+    font-size: 12px;
+    color: #666;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .videobar {
+        width: 100%;
+        margin-left: 0;
+        margin-top: 20px;
+    }
 }
 
 .vid-list {
@@ -75,4 +259,194 @@
 
 .vid-info {
     margin-left: 10px;
+}
+
+.rating-buttons {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 10px 0;
+}
+
+.rating-buttons button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.2em;
+    padding: 5px 10px;
+    border-radius: 5px;
+    transition: background-color 0.3s;
+}
+
+.rating-buttons button:hover {
+    background-color: #f0f0f0;
+}
+
+.rating-buttons button.active {
+    background-color: #e0e0e0;
+}
+
+.rating-buttons span {
+    font-size: 0.9em;
+    color: #666;
+}
+
+.video-meta {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin: 10px 0;
+    color: #666;
+    font-size: 14px;
+}
+
+.video-description {
+    margin: 20px 0;
+    padding: 15px 0;
+    border-top: 1px solid #eee;
+    border-bottom: 1px solid #eee;
+}
+
+.video-description h3 {
+    font-size: 16px;
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.video-description p {
+    font-size: 14px;
+    line-height: 1.5;
+    color: #333;
+    white-space: pre-wrap; /* Сохраняем переносы строк */
+}
+
+.video-author {
+    display: flex;
+    align-items: center;
+    margin: 16px 0;
+    gap: 15px;
+}
+
+.author-link {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    color: inherit;
+    gap: 10px;
+}
+
+.author-link:hover {
+    opacity: 0.8;
+}
+
+.author-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+#videoUploader {
+    font-size: 16px;
+    font-weight: 500;
+    color: #333;
+}
+
+.subscribe-button {
+    background-color: #2bbcff;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    margin-left: 16px;
+}
+
+.subscribe-button:hover {
+    background-color: #26a3dd;
+}
+
+.subscribe-button.subscribed {
+    background-color: #606060;
+}
+
+.subscribe-button.subscribed:hover {
+    background-color: #404040;
+}
+
+#subscribersCount {
+    font-size: 14px;
+    color: #606060;
+    margin-left: 8px;
+}
+
+.video-actions {
+    display: flex;
+    align-items: center;
+    margin: 10px 0;
+    position: relative;
+}
+
+.add-to-playlist-btn {
+    background-color: #2bbcff;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: 10px;
+}
+
+.add-to-playlist-btn:hover {
+    background-color: #1a9cd8;
+}
+
+.playlist-dropdown {
+    display: none;
+    position: absolute;
+    background-color: white;
+    min-width: 200px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    border-radius: 4px;
+    z-index: 1000;
+    margin-top: 5px;
+    top: 100%;
+    left: 0;
+}
+
+.playlist-dropdown-item {
+    padding: 8px 15px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.playlist-dropdown-item:hover {
+    background-color: #f0f0f0;
+}
+
+.playlist-dropdown-item a {
+    color: #2bbcff;
+    text-decoration: none;
+    display: block;
+}
+
+.playlist-dropdown-item button {
+    background: none;
+    border: none;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    font-size: 14px;
+    color: #333;
+}
+
+.playlist-dropdown-item button:hover {
+    color: #2bbcff;
 }

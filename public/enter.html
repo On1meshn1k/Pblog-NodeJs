@@ -4,68 +4,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="images/logo.png">
+    <link rel="stylesheet" href="css/style.css" type="text/css">
     <link rel="stylesheet" href="css/enter.css" type="text/css">
-    <script src="/js/enter_script.js" defer></script>
-    <script type="module" src="js/auth.js" defer></script>
-    <title>Pblog|Login</title>
+    <!-- <script src="js/auth.js" defer></script> -->
+    <script src="js/enter_script.js" defer></script>
+<!--    <script type="module" src="js/auth.js" defer></script>-->
+    <title>Pblog | Login</title>
 </head>
 <body>
-    <article class="container">
+<article class="container1">
+    <div class="block">
+        <section class="block__item block-item">
+            <h2 class="block-item__title">Уже имеется аккаунт?</h2>
+            <button class="block-item__btn signin-btn">Войти</button>
+        </section>
+        <section class="block__item block-item">
+            <h2 class="block-item__title">У вас нет аккаунта?</h2>
+            <button class="block-item__btn signup-btn">Зарегистрироваться</button>
+        </section>
+    </div>
 
-        <div class="block">
+    <!-- Блок формы -->
+    <div class="form-box">
+        <!-- Форма входа -->
+        <form id="signinForm" class="form form_signin">
+            <h3 class="form__title">Вход</h3>
+            <p>
+                <input id="email1" type="email" class="form__input" placeholder="Email" required>
+            </p>
+            <p>
+                <input id="password1" type="password" class="form__input" placeholder="Пароль" required>
+            </p>
+            <p>
+                <button type="submit" class="form__btn">Войти</button>
+            </p>
+        </form>
 
-            <section class="block__item block-item">
-                <h2 class="block-item__title">Уже имеется аккаунт?</h2>
-                <button class="block-item__btn signin-btn">Войти</button>
-            </section>
-            <section class="block__item block-item">
-                <h2 class="block-item__title">У вас нет аккаунта?</h2>
-                <button class="block-item__btn signup-btn">Зарегестрироваться</button>
-            </section>
-
-        </div>
-
-        <!-- Блок формы -->
-
-        <div class="form-box">
-
-            <!-- Форма входа -->
-
-            <form action="#" class="form form_signin">
-                <h3 class="form__title">Вход</h3>
-
-                <p>
-                    <input id="email1" type="email" class="form__input" placeholder="Email">
-                </p>
-                <p>
-                    <input id="password1" type="password" class="form__input" placeholder="Пароль">
-                </p>
-                <p>
-                    <button id="submit1" class="form__btn">Войти</button>
-                </p>
-            </form>
-
-            <!-- Форма регистрации -->
-
-            <form action="#" class="form form_signup">
-                <h3 class="form__title">Регистрация</h3>
-
-                <p>
-                    <input type="text" class="form__input" placeholder="Логин" id="login">
-                </p>
-
-                <p>
-                    <input type="email" id="email" class="form__input" placeholder="Email">
-                </p>
-
-                <p>
-                    <input type="password" id="password" class="form__input" placeholder="Пароль">
-                </p>
-
-                <p>
-                    <button id="submit" class="form__btn form__btn_signup">Зарегестрироваться</button>
-                </p>
-            </form>
-        </div>
-    </article>
+        <!-- Форма регистрации -->
+        <form id="signupForm" class="form form_signup">
+            <h3 class="form__title">Регистрация</h3>
+            <p>
+                <input id="login" type="text" class="form__input" placeholder="Логин" required>
+            </p>
+            <p>
+                <input id="email" type="email" class="form__input" placeholder="Email" required>
+            </p>
+            <p>
+                <input id="password" type="password" class="form__input" placeholder="Пароль" required>
+            </p>
+            <p>
+                <button type="submit" class="form__btn form__btn_signup">Зарегистрироваться</button>
+            </p>
+        </form>
+    </div>
+</article>
 </body>
+</html>

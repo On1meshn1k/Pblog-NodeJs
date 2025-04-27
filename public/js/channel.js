@@ -1,116 +1,210 @@
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
-import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+document.addEventListener("DOMContentLoaded", function() { // Убедимся, что DOM загружен
 
-// Your web app's Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyDfKH9o_5TIursPTAV3kgHRo45Sh6-2T4Y",
-  authDomain: "pblog-8e245.firebaseapp.com",
-  projectId: "pblog-8e245",
-  storageBucket: "pblog-8e245.appspot.com",
-  messagingSenderId: "438974043232",
-  appId: "1:438974043232:web:592cecb687e77958c2df05",
-  databaseURL: "https://pblog-8e245-default-rtdb.europe-west1.firebasedatabase.app/",
-};
-
-// Инициализация Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getDatabase(app);
-const storage = getStorage(app);
-
-document.getElementById('change-logo').addEventListener("click", function () {
-  const user = auth.currentUser;
-  if (user) {
-    window.location.href = "edit-profile.html";
-  } else {
-    alert('Пользователь не авторизирован');
+  const usernameSpan = document.getElementById("username");
+  const logoutButton = document.getElementById("logout");
+  const uploadButton = document.getElementById("upload");
+  const authLink = document.querySelector(".authLink"); // Кнопка "Войти" или ссылка
+  const channelNameSpan = document.getElementById("channelName"); // Исправляем селектор
+  const channelLogo = document.getElementById("channelLogo"); // Исправляем селектор
+  const channelDescription = document.getElementById("channelDescription");
+  const editProfileButton = document.getElementById("editProfile");
+  const videoList = document.getElementById("videoList");
+  const subscribersCount = document.getElementById("subscribersCount");
+  
+  // Проверка, что элементы существуют
+  if (!usernameSpan || !logoutButton || !uploadButton || !authLink || !channelNameSpan || !channelLogo || !channelDescription || !editProfileButton || !videoList) {
+    console.error("Один или несколько элементов не найдены.");
+    return;
   }
-});
 
-const username = document.getElementById('username');
-const upload = document.getElementById('upload');
-const logout = document.getElementById('logout');
-const enter = document.querySelector('.auth');
-const channel_name = document.querySelector('.channel-name');
-const videoListContainer = document.querySelector('.vid-list');
+  const isLoggedIn = localStorage.getItem("user"); // Получаем данные из localStorage
 
-auth.onAuthStateChanged(function (user) {
-  if (user) {
-    username.style.display = "block";
-    upload.style.display = "block";
-    logout.style.display = "block";
-    enter.style.display = "none";
-    const userId = user.uid;
-    const usernameRef = ref(db, "users/" + userId + "/username");
-
-    get(usernameRef).then((snapshot) => {
-      if (snapshot.exists()) {
-        const usernameValue = snapshot.val();
-        username.innerText = usernameValue;
-        channel_name.innerText = usernameValue;
-      } else {
-        alert('данные об имени пользователя не найдены');
+  // Функция для загрузки информации о канале
+  const loadChannelInfo = async (userId) => {
+    try {
+      const response = await fetch(`/api/channels/user/${userId}`);
+      if (!response.ok) {
+        throw new Error('Ошибка при загрузке информации о канале');
       }
-    }).catch((error) => {
-      alert("Ошибка при получении имени пользователя: " + error);
-    });
+      const channel = await response.json();
+      
+      // Обновляем информацию о канале
+      if (channelNameSpan) channelNameSpan.textContent = channel.channel_name;
+      if (channelLogo) channelLogo.src = channel.logo_url || "images/default-avatar.png";
+      if (channelDescription) channelDescription.textContent = channel.channel_description || "Описание отсутствует";
+      
+      // Обновляем счетчик подписчиков
+      if (subscribersCount) {
+        subscribersCount.textContent = `${channel.subscribers_count || 0} подписчиков`;
+      }
+      
+      // Загружаем видео канала
+      await loadChannelVideos(channel.channel_id);
+      
+    } catch (error) {
+      console.error('Ошибка при загрузке информации о канале:', error);
+    }
+  };
 
-    const avatarStorageRef = storageRef(storage, `avatars/${userId}/avatar.jpg`);
+  // Функция для загрузки видео канала
+  const loadChannelVideos = async (channelId) => {
+    try {
+      const response = await fetch(`/api/channels/${channelId}/videos`);
+      if (!response.ok) {
+        throw new Error('Ошибка при загрузке видео');
+      }
+      
+      const videos = await response.json();
+      console.log('Загружены видео пользователя:', videos);
 
-    getDownloadURL(avatarStorageRef)
-      .then((url) => {
-        const imgElement = document.querySelector('.channel-logo');
-        imgElement.src = url;
-      })
-      .catch((error) => {
-        // alert('Ошибка получения URL изображения: ', error);
+      // Очищаем контейнер
+      videoList.innerHTML = '';
+
+      // Добавляем каждое видео
+      videos.forEach(video => {
+        const videoElement = createVideoElement(video);
+        videoList.appendChild(videoElement);
       });
 
-    // Загрузка видео пользователя
-    loadUserVideos(userId);
+      // Если видео нет, показываем сообщение
+      if (videos.length === 0) {
+        videoList.innerHTML = '<p class="no-videos">У вас пока нет загруженных видео</p>';
+      }
+
+    } catch (error) {
+      console.error('Ошибка:', error);
+      videoList.innerHTML = '<p class="error">Ошибка при загрузке видео</p>';
+    }
+  };
+
+  // Функция для создания элемента видео
+  function createVideoElement(video) {
+    const videoElement = document.createElement('div');
+    videoElement.className = 'video-item';
+    videoElement.innerHTML = `
+        <a href="video.html?id=${video.video_id}">
+            <img src="${video.thumbnail_url}" alt="${video.title}">
+            <h3>${video.title}</h3>
+            <p>${video.views} просмотров</p>
+            <p>${new Date(video.upload_date).toLocaleDateString()}</p>
+        </a>
+        <div class="video-actions">
+            <button class="delete-video-btn" data-video-id="${video.video_id}">
+                <i class="fas fa-trash"></i> Удалить
+            </button>
+        </div>
+    `;
+
+    // Добавляем обработчик для кнопки удаления
+    const deleteBtn = videoElement.querySelector('.delete-video-btn');
+    deleteBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        if (confirm('Вы уверены, что хотите удалить это видео?')) {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    alert('Требуется авторизация');
+                    return;
+                }
+
+                const response = await fetch(`/api/videos/${video.video_id}/owner`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': token,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                // Сначала проверяем статус авторизации
+                if (response.status === 401 || response.status === 403) {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    window.location.href = '/';
+                    return;
+                }
+
+                // Затем проверяем общий статус ответа
+                if (!response.ok) {
+                    let errorMessage = 'Ошибка при удалении видео';
+                    try {
+                        const error = await response.json();
+                        errorMessage = error.error || errorMessage;
+                    } catch (e) {
+                        // Если не удалось распарсить JSON, используем стандартное сообщение
+                        console.error('Ошибка при парсинге ответа:', e);
+                    }
+                    throw new Error(errorMessage);
+                }
+
+                // Если всё успешно, удаляем видео со страницы
+                videoElement.remove();
+                alert('Видео успешно удалено');
+            } catch (error) {
+                console.error('Ошибка при удалении видео:', error);
+                alert(error.message);
+            }
+        }
+    });
+
+    return videoElement;
+  }
+
+  if (isLoggedIn) {
+    try {
+      const user = JSON.parse(isLoggedIn); // Преобразуем строку JSON обратно в объект
+      uploadButton.addEventListener('click', function() {
+            window.location.href = 'upload_video.html';
+        });
+
+      // Отображаем имя пользователя и скрываем кнопки входа/регистрации
+      usernameSpan.textContent = user.username;
+      channelNameSpan.textContent = user.username; // Отображаем имя пользователя в channel-name
+      
+      // Устанавливаем аватарку пользователя
+      if (user.profile_picture_url) {
+        channelLogo.src = user.profile_picture_url;
+      } else {
+        channelLogo.src = "images/default-avatar.png"; // Используем стандартную аватарку, если нет своей
+      }
+      
+      authLink.style.display = "none"; // Скрыть кнопку "Войти"
+      uploadButton.style.display = "block"; // Показать кнопку загрузки видео
+      logoutButton.style.display = "block"; // Показать кнопку выхода
+      usernameSpan.style.display = "block"; // Показать имя пользователя
+
+      // Загружаем информацию о канале
+      loadChannelInfo(user.user_id);
+
+      logoutButton.addEventListener("click", () => {
+        localStorage.removeItem("user"); // Удалить данные при выходе
+        window.location.reload(); // Перезагружаем страницу
+      });
+    } catch (error) {
+      console.error("Ошибка при парсинге данных пользователя:", error);
+    }
+  } else {
+    // Если пользователь не авторизован
+    usernameSpan.style.display = "none"; // Скрыть имя пользователя
+    uploadButton.style.display = "none"; // Скрыть кнопку загрузки
+    logoutButton.style.display = "none"; // Скрыть кнопку выхода
+    channelNameSpan.textContent = ""; // Очищаем имя канала
+    channelLogo.src = "images/default-avatar.png"; // Устанавливаем стандартную аватарку
+    alert("Пожалуйста, авторизуйтесь для просмотра канала");
+    window.location.href = "enter.html";
+  }
+  
+  // Переход на страницу редактирования профиля
+  const changeLogoButton = document.getElementById("changeLogo");
+  if (changeLogoButton) {
+    changeLogoButton.addEventListener("click", () => {
+      window.location.href = "edit-profile.html";
+    });
+  }
+
+  // Обработчик для кнопки "Изменить профиль"
+  if (editProfileButton) {
+    editProfileButton.addEventListener("click", () => {
+      window.location.href = "edit-profile.html";
+    });
   }
 });
-
-// Функция для загрузки видео пользователя
-function loadUserVideos(userId) {
-  const userVideosRef = ref(db, `videos`);
-  get(userVideosRef).then((snapshot) => {
-    videoListContainer.innerHTML = '';
-    snapshot.forEach((childSnapshot) => {
-      const video = childSnapshot.val();
-      if (video.userId === userId) {
-        const videoElement = `
-          <div class="vid-item">
-              <img src="${video.thumbnailUrl}" class="thumbnail">
-            <div class="vid-info">
-              <span class="vid-title">${video.title}</span>
-              <p>Просмотры: ${video.views}</p>
-              <p>${video.uploadDate}</p>
-            </div>
-          </div>
-        `;
-        videoListContainer.innerHTML += videoElement;
-      }
-    });
-  }).catch((error) => {
-    console.error('Ошибка загрузки видео пользователя:', error);
-  });
-}
-
-// Выход из аккаунта
-logout.addEventListener('click', function () {
-  auth.signOut().then(function () {
-    alert('Вы вышли из аккаунта');
-    username.style.display = "none";
-    upload.style.display = "none";
-    logout.style.display = "none";
-    enter.style.display = "block";
-  }).catch(function (error) {
-    alert('Ошибка при выходе из аккаунта: ' + error);
-  });
-})

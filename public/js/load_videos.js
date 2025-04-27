@@ -1,44 +1,70 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+// load_videos.js
 
-const firebaseConfig = {
-  apiKey: "AIzaSyDfKH9o_5TIursPTAV3kgHRo45Sh6-2T4Y",
-  authDomain: "pblog-8e245.firebaseapp.com",
-  projectId: "pblog-8e245",
-  storageBucket: "pblog-8e245.appspot.com",
-  messagingSenderId: "438974043232",
-  appId: "1:438974043232:web:592cecb687e77958c2df05",
-  databaseURL: "https://pblog-8e245-default-rtdb.europe-west1.firebasedatabase.app/",
-};
+const videoListContainer = document.getElementById("videoList");
+const searchInput = document.getElementById("searchInput");
+const searchButton = document.getElementById("searchButton");
 
-const app = initializeApp(firebaseConfig);
-const database = getDatabase(app);
+// Функция для отображения видео
+function renderVideos(videos) {
+    if (videos.length === 0) {
+        videoListContainer.innerHTML = "<p>Видео не найдены</p>";
+        return;
+    }
 
-const videoListContainer = document.querySelector('.list-container');
-
-function fetchVideos() {
-    const videosRef = ref(database, 'videos');
-    const userRef = ref(database, 'users');
-    onValue(videosRef, (snapshot) => {
-        videoListContainer.innerHTML = '';
-        snapshot.forEach((childSnapshot) => {
-            const video = childSnapshot.val();
-            const videoElement = `
-                <div class="vid-list">
-                    <a href="video.html?videoId=${childSnapshot.key}"><img src="${video.thumbnailUrl}" class="thumbnail"></a>
-                    <div class="flex-div">
-                        <div class="vid-info">
-                            <a href="video.html?videoId=${childSnapshot.key}">${video.title}</a>
-                            <p>Автор: ${video.userId}</p>
-                            <p>${video.uploadDate}</p>
-                        </div>
-                    </div>
+    videoListContainer.innerHTML = videos
+        .map(
+            (video) => `
+            <div class="video-item" onclick="window.location.href='/video.html?id=${video.video_id}'">
+                <img src="${video.thumbnail_url}" alt="${video.title}" class="video-thumbnail">
+                <div class="video-info">
+                    <h3>${video.title}</h3>
+                    <p>${video.channel_name}</p>
+                    <p>${video.views} просмотров</p>
+                    <p>${new Date(video.upload_date).toLocaleDateString()}</p>
                 </div>
-            `;
-            videoListContainer.innerHTML += videoElement;
-        });
+            </div>
+        `
+        )
+        .join("");
+}
+
+// Обработчик поиска
+if (searchInput) {
+    // Обработка нажатия Enter
+    searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            const searchQuery = e.target.value.trim();
+            fetchVideos(searchQuery);
+        }
     });
 }
 
+// Обработка клика по кнопке поиска
+if (searchButton) {
+    searchButton.addEventListener('click', () => {
+        const searchQuery = searchInput.value.trim();
+        fetchVideos(searchQuery);
+    });
+}
 
+async function fetchVideos(searchQuery = '') {
+    try {
+        const url = new URL('/api/videos', window.location.origin);
+        if (searchQuery) {
+            url.searchParams.append('search', searchQuery);
+        }
+
+        const response = await fetch(url);
+        if (!response.ok) throw new Error("Ошибка загрузки видео");
+
+        const videos = await response.json();
+        renderVideos(videos);
+    } catch (error) {
+        console.error(error);
+        videoListContainer.innerHTML = "<p>Ошибка загрузки видео</p>";
+    }
+}
+
+// Запуск функции
 fetchVideos();
+

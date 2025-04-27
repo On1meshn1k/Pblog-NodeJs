@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админ-панель</title>
+    <link rel="stylesheet" href="css/admin.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="admin-container">
+        <aside class="sidebar">
+            <div class="admin-header">
+                <h2>Админ-панель</h2>
+            </div>
+            <nav class="admin-nav">
+                <ul>
+                    <li class="active" data-tab="videos">
+                        <i class="fas fa-video"></i>
+                        <span>Видео</span>
+                    </li>
+                    <li data-tab="comments">
+                        <i class="fas fa-comments"></i>
+                        <span>Комментарии</span>
+                    </li>
+                    <li data-tab="users">
+                        <i class="fas fa-users"></i>
+                        <span>Пользователи</span>
+                    </li>
+                </ul>
+            </nav>
+        </aside>
+
+        <main class="admin-content">
+            <!-- Секция управления видео -->
+            <section id="videos" class="content-section active">
+                <h2>Управление видео</h2>
+                <div class="search-bar">
+                    <input type="text" id="videoSearch" placeholder="Поиск видео...">
+                    <button class="search-btn"><i class="fas fa-search"></i></button>
+                </div>
+                <div class="video-list" id="adminVideoList">
+                    <!-- Видео будут загружены через JavaScript -->
+                </div>
+            </section>
+
+            <!-- Секция управления комментариями -->
+            <section id="comments" class="content-section">
+                <h2>Управление комментариями</h2>
+                <div class="search-bar">
+                    <input type="text" id="commentSearch" placeholder="Поиск комментариев...">
+                    <button class="search-btn"><i class="fas fa-search"></i></button>
+                </div>
+                <div class="comment-list" id="adminCommentList">
+                    <!-- Комментарии будут загружены через JavaScript -->
+                </div>
+            </section>
+
+            <!-- Секция управления пользователями -->
+            <section id="users" class="content-section">
+                <h2>Управление пользователями</h2>
+                <div class="search-bar">
+                    <input type="text" id="userSearch" placeholder="Поиск пользователей...">
+                    <button class="search-btn"><i class="fas fa-search"></i></button>
+                </div>
+                <div class="user-list" id="adminUserList">
+                    <!-- Пользователи будут загружены через JavaScript -->
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Модальное окно для подтверждения действий -->
+    <div id="confirmModal" class="modal">
+        <div class="modal-content">
+            <h3>Подтверждение</h3>
+            <p id="confirmMessage"></p>
+            <div class="modal-buttons">
+                <button id="confirmBtn" class="btn-danger">Подтвердить</button>
+                <button id="cancelBtn" class="btn-secondary">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/admin.js"></script>
+</body>
+</html> 

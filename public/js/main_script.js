@@ -1,72 +1,138 @@
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-import { getStorage } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+document.addEventListener('DOMContentLoaded', () => {
+    // Получаем элементы страницы
+    const username = document.getElementById('username');
+    const upload = document.getElementById('upload');
+    const logout = document.getElementById('logout');
+    const enter = document.querySelector('.auth');
+    const subscriptionsList = document.querySelector('.subscriptions-list');
 
-// Your web app's Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyDfKH9o_5TIursPTAV3kgHRo45Sh6-2T4Y",
-  authDomain: "pblog-8e245.firebaseapp.com",
-  projectId: "pblog-8e245",
-  storageBucket: "pblog-8e245.appspot.com",
-  messagingSenderId: "438974043232",
-  appId: "1:438974043232:web:592cecb687e77958c2df05",
-  databaseURL: "https://pblog-8e245-default-rtdb.europe-west1.firebasedatabase.app/",
-};
+    // Проверяем авторизацию
+    const user = JSON.parse(localStorage.getItem('user'));
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getDatabase(app);
+    // Обновляем UI в зависимости от авторизации
+    if (user) {
+        if (username) username.style.display = "block";
+        if (upload) upload.style.display = "block";
+        if (logout) logout.style.display = "block";
+        if (enter) enter.style.display = "none";
+        if (username) username.innerText = user.username;
+        
+        // Загружаем подписки пользователя
+        loadUserSubscriptions(user.user_id);
+    } else {
+        if (username) username.style.display = "none";
+        if (upload) upload.style.display = "none";
+        if (logout) logout.style.display = "none";
+        if (enter) enter.style.display = "block";
+        if (subscriptionsList) {
+            subscriptionsList.innerHTML = '<p class="no-subscriptions">Войдите, чтобы видеть подписки</p>';
+        }
+    }
 
-const username = document.getElementById('username');
-const logout = document.getElementById('logout');
-const enter = document.querySelector('.auth');
-const user = auth.currentUser;
+    // Обработчик выхода
+    if (logout) {
+        logout.addEventListener('click', () => {
+            localStorage.removeItem('user');
+            window.location.href = 'enter.html';
+        });
+    }
 
-auth.onAuthStateChanged(function(user) {
-  if(user) {
-    username.style.display = "block"
-    upload.style.display = "block"
-    logout.style.display = "block"
-    enter.style.display = "none"
+    // Обработчик входа
+    if (enter) {
+        enter.addEventListener('click', () => {
+            window.location.href = 'enter.html';
+        });
+    }
 
-    const userId = user.uid;
-    const usernameRef = ref(db, "users/" + userId + "/username");
+    // Функционал сворачивания/разворачивания сайдбара
+    const menuIcon = document.querySelector('.menu-icon');
+    const sidebar = document.querySelector('.sidebar');
+    const mainContent = document.querySelector('.main-content');
 
-    get(usernameRef).then((snapshot) => {
-      if (snapshot.exists()) {
-        const usernameValue = snapshot.val();
-        username.innerText = usernameValue;
-      } else {
-        alert('данные об имени пользователя не найдены')
-      }
-    }).catch((error) => {
-      alert("Ошибка при получении имени пользователя" + error);
-  })
-  }
-})
+    if (menuIcon && sidebar && mainContent) {
+        // Проверяем сохраненное состояние сайдбара
+        const isSidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+        if (isSidebarCollapsed) {
+            sidebar.classList.add('collapsed');
+            mainContent.classList.add('expanded');
+        }
 
-logout.addEventListener('click', function() {
-  auth.signOut().then(function() {
-    alert('Вы вышли из аккаунта');
-
-    username.style.display = "none"
-    upload.style.display = "none"
-    logout.style.display = "none"
-    enter.style.display = "block"
-  }) .catch(function(error) {
-    alert.error('Ошибка при выходе из аккаунта', error);
-  });
+        menuIcon.addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+            mainContent.classList.toggle('expanded');
+            
+            // Сохраняем состояние сайдбара
+            localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
+        });
+    }
 });
 
-// Загрузка видео
+// Функция загрузки подписок пользователя
+async function loadUserSubscriptions(userId) {
+    try {
+        const response = await fetch(`/api/users/${userId}/subscriptions`);
+        if (!response.ok) {
+            throw new Error('Ошибка при загрузке подписок');
+        }
+        
+        const subscriptions = await response.json();
+        const subscriptionsList = document.querySelector('.subscriptions-list');
+        
+        if (!subscriptionsList) return;
+        
+        if (subscriptions.length === 0) {
+            subscriptionsList.innerHTML = '<p class="no-subscriptions">У вас пока нет подписок</p>';
+            return;
+        }
+        
+        // Очищаем список подписок
+        subscriptionsList.innerHTML = '';
+        
+        // Добавляем каждую подписку в список
+        subscriptions.forEach(channel => {
+            const channelElement = document.createElement('div');
+            channelElement.className = 'subscription-item';
+            channelElement.innerHTML = `
+                <a href="/channel_view.html?id=${channel.channel_id}" class="subscription-link">
+                    <img src="${channel.logo_url || 'images/default-avatar.png'}" alt="${channel.channel_name}" class="channel-avatar">
+                    <span class="channel-name">${channel.channel_name}</span>
+                </a>
+            `;
+            subscriptionsList.appendChild(channelElement);
+        });
+    } catch (error) {
+        console.error('Ошибка при загрузке подписок:', error);
+        const subscriptionsList = document.querySelector('.subscriptions-list');
+        if (subscriptionsList) {
+            subscriptionsList.innerHTML = '<p class="error">Ошибка при загрузке подписок</p>';
+        }
+    }
+}
 
+// Загрузка видео
 const upload_video = document.getElementById('upload');
 
-upload_video.addEventListener("click", function() {
-  window.location.href = "upload_video.html"
-})
+if (upload_video) {
+    upload_video.addEventListener("click", function() {
+        window.location.href = "upload_video.html"
+    });
+}
+
+function createVideoElement(video) {
+    const videoItem = document.createElement('div');
+    videoItem.className = 'video-item';
+    
+    videoItem.innerHTML = `
+        <img src="${video.thumbnail_url}" alt="${video.title}">
+        <div class="video-info">
+            <h3>${video.title}</h3>
+            <p>${video.views} просмотров</p>
+        </div>
+    `;
+    
+    videoItem.addEventListener('click', () => {
+        window.location.href = `video.html?id=${video.video_id}`;
+    });
+    
+    return videoItem;
+}

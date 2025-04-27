@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="images/logo.png">
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/channel.css">
     <link rel="stylesheet" href="css/video_page.css">
@@ -26,7 +27,7 @@
             <img src="images/upload.png" class="upload" id="upload">
             <span class="username" id="username"></span>
             <button class="logout" id="logout">Выйти</button>
-            <a href="enter.html" class="auth">Войти</a>
+            <a href="enter.html" class="authLink">Войти</a>
         </div>
     </nav>
 
@@ -41,17 +42,41 @@
             </div>
             <div class="video-details">
                 <h1 id="videoTitle"></h1>
-                <p id="videoUploader"></p>
-                <button id="likeButton">👍</button>
-                <span id="likesCount">0</span> лайков
+                <div class="video-author">
+                    <a href="#" id="authorLink" class="author-link">
+                        <img id="authorAvatar" src="images/default-avatar.png" alt="Аватар автора" class="author-avatar">
+                        <span id="videoUploader">Имя автора</span>
+                    </a>
+                    <button id="subscribeButton" class="subscribe-button">Подписаться</button>
+                    <span id="subscribersCount">0 подписчиков</span>
+                </div>
+                <div class="video-meta">
+                    <span id="videoViews">0 просмотров</span>
+                    <span id="videoDate"></span>
+                </div>
+                <div class="rating-buttons">
+                    <button id="likeButton">👍</button>
+                    <span id="likeCount">0</span> лайков
+                    <button id="dislikeButton">👎</button>
+                    <span id="dislikeCount">0</span> дизлайков
+                </div>
+                <div class="video-actions">
+                    <!-- Кнопка добавления в плейлист будет добавлена здесь -->
+                </div>
+                <div class="video-description">
+                    <h3>Описание</h3>
+                    <p id="videoDescription"></p>
+                </div>
             </div>
             <div class="comments-section">
-                <h3>Комментарии</h3>
-                <form id="commentForm">
-                    <input type="text" id="commentInput" placeholder="Добавить комментарий" required>
-                    <button type="submit">Отправить</button>
-                </form>
-                <div id="commentsContainer"></div>
+                <h2>Комментарии</h2>
+                <div class="add-comment">
+                    <textarea id="commentText" placeholder="Добавить комментарий..." maxlength="500"></textarea>
+                    <button id="submitComment">Отправить</button>
+                </div>
+                <div id="commentsList" class="comments-list">
+                    <!-- Комментарии будут добавлены здесь -->
+                </div>
             </div>
         </div>
         <div class="videobar">
@@ -61,9 +86,8 @@
     </div>
 
     <script type="module" src="js/main_script.js"></script>
-    <script type="module" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"></script>
-    <script type="module" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js"></script>
     <script type="module" src="js/video_page.js"></script>
+    <script type="module" src="js/script.js"></script>
 </body>
 
 </html>

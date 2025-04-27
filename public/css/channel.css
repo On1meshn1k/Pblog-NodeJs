@@ -22,3 +22,161 @@ img {
     margin-top: 15px;
     grid-auto-flow: row;
 }
+
+/* Стили для кнопки подписки */
+.subscribe-button {
+    background-color: #2bbcff;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: background-color 0.3s;
+}
+
+.subscribe-button:hover {
+    background-color: #26a3dd;
+}
+
+/* Стили для страницы просмотра канала */
+.channel-info {
+    display: flex;
+    align-items: flex-start;
+    padding: 20px;
+    margin-bottom: 20px;
+    background-color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.channel-logo {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    margin-right: 20px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.channel-details {
+    flex: 1;
+}
+
+.channel-title {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 0 0 10px 0;
+    color: #333;
+}
+
+.channel-description {
+    margin: 20px 0;
+    padding: 0;
+    background:transparent;
+    border-radius: 8px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #333;
+}
+
+.channel-description:empty::before {
+    content: "Описание отсутствует";
+    color: #999;
+    font-style: italic;
+}
+
+.subscribers-count {
+    font-size: 14px;
+    color: #888;
+    margin: 0 0 15px 0;
+}
+
+.subscribe-button:hover {
+    background-color: #26a3dd;
+}
+
+.subscribe-button.subscribed {
+    background-color: #666;
+}
+
+.subscribe-button.subscribed:hover {
+    background-color: #444;
+}
+
+.channel-description-edit {
+    margin-bottom: 20px;
+}
+
+.channel-description:focus {
+    outline: none;
+    border-color: #cc0000;
+    box-shadow: 0 0 0 2px rgba(204, 0, 0, 0.1);
+}
+
+.save-button {
+    padding: 8px 16px;
+    background-color: #cc0000;
+    color: white;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    transition: background-color 0.3s;
+}
+
+.save-button:hover {
+    background-color: #990000;
+}
+
+.save-button:disabled {
+    background-color: #666;
+    cursor: not-allowed;
+}
+
+.edit-profile-btn {
+    background-color: #2bbcff;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 15px;
+    transition: background-color 0.3s;
+}
+
+.edit-profile-btn:hover {
+    background-color: #26a3dd;
+}
+
+.video-actions {
+    margin-top: 10px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.delete-video-btn {
+    background-color: #ff4444;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: background-color 0.3s;
+    
+}
+
+.delete-video-btn:hover {
+    background-color: #cc0000;
+}
+
+.delete-video-btn i {
+    font-size: 14px;
+}

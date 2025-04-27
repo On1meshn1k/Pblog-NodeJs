@@ -4,8 +4,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/png" href="images/logo.png">
+    <link rel="stylesheet" href="css/style.css" type="text/css">
+    <script src="js/auth.js" defer></script>
     <script src="js/script.js" defer></script>
+    <script src="js/main_script.js" defer></script>
+    <script src="js/channel_manager.js" defer></script>
+<!--    <script src="js/auth.js" defer></script>-->
     <title>PBlog</title>
 </head>
 
@@ -18,15 +23,21 @@
         </div>
         <div class="nav-middle flex-div">
             <div class="search-box flex-div">
-                <input type="text" placeholder="Поиск">
-                <img src="images/search.png">
+                <input type="text" id="searchInput" placeholder="Поиск">
+                <img src="images/search.png" id="searchButton">
             </div>
         </div>
         <div class="nav-right flex-div">
+            <div class="channel-selector">
+                <select id="channelSelect" class="channel-select">
+                    <option value="">Выберите канал</option>
+                    <option value="create">+ Создать новый канал</option>
+                </select>
+            </div>
             <img src="images/upload.png" class="upload" id="upload">
             <span class="username" id="username"></span>
             <button class="logout" id="logout">Выйти</button>
-            <a href="enter.html" class="auth">Войти</a>
+            <a href="enter.html" class="authLink">Войти</a>
         </div>
     </nav>
     <!-- sidebar -->
@@ -39,27 +50,30 @@
             <a href="channel.html"><img src="images/subscriprion.png">
                 <p>Мой канал</p>
             </a>
+            <a href="playlists.html"><img src="images/library.png">
+                <p>Плейлисты</p>
+            </a>
             <a href=""><img src="images/library.png">
-                <p>Библиотека</p>
+                <p>История</p>
             </a>
             <hr>
         </div>
         <div class="subscribe-list">
             <h3>Подписки</h3>
+            <div class="subscriptions-list">
+                <!-- Подписки будут добавляться динамически -->
+            </div>
         </div>
     </div>
 
     <!-- main -->
 
-    <div class="container">
-        <div class="list-container" id="videoList">
+    <div class="container main-content">
+        <div class="video-container" id="videoList">
+            <!-- Видео будут добавляться динамически -->
         </div>
     </div>
 
-    <script type="module" src="js/main_script.js"></script>
-    <script type="module" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"></script>
-    <script type="module" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js"></script>
-    <script type="module" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js"></script>
     <script type="module" src="js/load_videos.js"></script>
 </body>
 

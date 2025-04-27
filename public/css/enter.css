@@ -2,6 +2,7 @@
 
 * {
     box-sizing: border-box;
+    padding: 5px;
 }
 
 body {
@@ -21,7 +22,7 @@ body.active {
     background-color: lightcoral;
 }
 
-.container {
+.container1 {
     width: 800px;
     height: 500px;
     padding: 40px 0;
