@@ -307,7 +307,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Загружаем информацию о видео
+    // Функция для загрузки информации о видео
     const loadVideo = async () => {
         try {
             console.log('Загрузка информации о видео:', videoId);
@@ -383,6 +383,9 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Загружаем комментарии
             await loadComments();
+
+            // Загружаем плейлисты пользователя
+            await loadUserPlaylists();
             
         } catch (error) {
             console.error('Ошибка при загрузке видео:', error);
@@ -579,6 +582,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        const currentUser = JSON.parse(localStorage.getItem('user'));
+
         comments.forEach(comment => {
             const commentElement = document.createElement('div');
             commentElement.className = 'comment';
@@ -592,18 +597,65 @@ document.addEventListener('DOMContentLoaded', () => {
                 minute: '2-digit'
             });
 
+            // Добавляем кнопку удаления только если комментарий принадлежит текущему пользователю
+            const deleteButton = currentUser && currentUser.user_id === comment.user_id 
+                ? `<button class="delete-comment-btn" data-comment-id="${comment.comment_id}">Удалить</button>`
+                : '';
+
             commentElement.innerHTML = `
                 <img src="${comment.profile_picture_url || '/images/default-avatar.png'}" alt="Аватар" class="comment-avatar">
                 <div class="comment-content">
                     <div class="comment-header">
                         <span class="comment-username">${comment.username}</span>
                         <span class="comment-date">${formattedDate}</span>
+                        ${deleteButton}
                     </div>
                     <p class="comment-text">${comment.comment_text}</p>
                 </div>
             `;
             commentsList.appendChild(commentElement);
+
+            // Добавляем обработчик для кнопки удаления
+            const deleteBtn = commentElement.querySelector('.delete-comment-btn');
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', () => deleteComment(comment.comment_id));
+            }
         });
+    };
+
+    // Функция для удаления комментария
+    const deleteComment = async (commentId) => {
+        if (!confirm('Вы уверены, что хотите удалить этот комментарий?')) {
+            return;
+        }
+
+        try {
+            const user = JSON.parse(localStorage.getItem('user'));
+            if (!user) {
+                alert('Для удаления комментария необходимо авторизоваться');
+                window.location.href = 'enter.html';
+                return;
+            }
+
+            const response = await fetch(`/api/videos/${videoId}/comments/${commentId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ user_id: user.user_id })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.message || 'Ошибка при удалении комментария');
+            }
+
+            // Обновляем список комментариев после удаления
+            await loadComments();
+        } catch (error) {
+            console.error('Ошибка при удалении комментария:', error);
+            alert(error.message || 'Ошибка при удалении комментария');
+        }
     };
 
     // Функция для добавления комментария
@@ -658,4 +710,116 @@ document.addEventListener('DOMContentLoaded', () => {
             addComment();
         }
     });
+
+    // Загрузка плейлистов пользователя
+    const loadUserPlaylists = async () => {
+        try {
+            const user = JSON.parse(localStorage.getItem('user'));
+            if (!user) return;
+
+            const response = await fetch(`/api/users/${user.user_id}/playlists`);
+            if (!response.ok) {
+                throw new Error('Ошибка при загрузке плейлистов');
+            }
+
+            const playlists = await response.json();
+            displayPlaylistButton(playlists);
+        } catch (error) {
+            console.error('Ошибка при загрузке плейлистов:', error);
+        }
+    };
+
+    // Отображение кнопки добавления в плейлист
+    const displayPlaylistButton = (playlists) => {
+        const videoActions = document.querySelector('.video-actions');
+        if (!videoActions) {
+            console.error('Контейнер для кнопки добавления в плейлист не найден');
+            return;
+        }
+
+        const playlistButton = document.createElement('button');
+        playlistButton.className = 'add-to-playlist-btn';
+        playlistButton.innerHTML = '<i class="fas fa-plus"></i> Добавить в плейлист';
+        
+        const playlistDropdown = document.createElement('div');
+        playlistDropdown.className = 'playlist-dropdown';
+        
+        if (playlists.length === 0) {
+            playlistDropdown.innerHTML = `
+                <div class="playlist-dropdown-item">
+                    <a href="playlists.html">Создать плейлист</a>
+                </div>
+            `;
+        } else {
+            playlistDropdown.innerHTML = playlists.map(playlist => `
+                <div class="playlist-dropdown-item">
+                    <button class="add-to-playlist-item" data-playlist-id="${playlist.playlist_id}">
+                        ${playlist.playlist_name}
+                    </button>
+                </div>
+            `).join('') + `
+                <div class="playlist-dropdown-item">
+                    <a href="playlists.html">Создать плейлист</a>
+                </div>
+            `;
+        }
+
+        playlistButton.addEventListener('click', () => {
+            playlistDropdown.style.display = playlistDropdown.style.display === 'block' ? 'none' : 'block';
+        });
+
+        // Закрытие выпадающего списка при клике вне его
+        document.addEventListener('click', (e) => {
+            if (!playlistButton.contains(e.target) && !playlistDropdown.contains(e.target)) {
+                playlistDropdown.style.display = 'none';
+            }
+        });
+
+        // Добавление обработчиков для кнопок добавления в плейлист
+        playlistDropdown.addEventListener('click', async (e) => {
+            const addButton = e.target.closest('.add-to-playlist-item');
+            if (addButton) {
+                const playlistId = addButton.dataset.playlistId;
+                await addToPlaylist(playlistId);
+                playlistDropdown.style.display = 'none';
+            }
+        });
+
+        // Добавляем кнопку и выпадающий список на страницу
+        videoActions.appendChild(playlistButton);
+        videoActions.appendChild(playlistDropdown);
+    };
+
+    // Добавление видео в плейлист
+    const addToPlaylist = async (playlistId) => {
+        try {
+            const user = JSON.parse(localStorage.getItem('user'));
+            if (!user) {
+                alert('Для добавления в плейлист необходимо авторизоваться');
+                window.location.href = 'enter.html';
+                return;
+            }
+
+            const response = await fetch(`/api/playlists/${playlistId}/videos`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    video_id: videoId,
+                    user_id: user.user_id
+                })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.message || 'Ошибка при добавлении в плейлист');
+            }
+
+            alert('Видео успешно добавлено в плейлист');
+        } catch (error) {
+            console.error('Ошибка при добавлении в плейлист:', error);
+            alert(error.message || 'Ошибка при добавлении в плейлист');
+        }
+    };
 });

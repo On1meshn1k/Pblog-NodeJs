@@ -382,3 +382,71 @@
     color: #606060;
     margin-left: 8px;
 }
+
+.video-actions {
+    display: flex;
+    align-items: center;
+    margin: 10px 0;
+    position: relative;
+}
+
+.add-to-playlist-btn {
+    background-color: #2bbcff;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: 10px;
+}
+
+.add-to-playlist-btn:hover {
+    background-color: #1a9cd8;
+}
+
+.playlist-dropdown {
+    display: none;
+    position: absolute;
+    background-color: white;
+    min-width: 200px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    border-radius: 4px;
+    z-index: 1000;
+    margin-top: 5px;
+    top: 100%;
+    left: 0;
+}
+
+.playlist-dropdown-item {
+    padding: 8px 15px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.playlist-dropdown-item:hover {
+    background-color: #f0f0f0;
+}
+
+.playlist-dropdown-item a {
+    color: #2bbcff;
+    text-decoration: none;
+    display: block;
+}
+
+.playlist-dropdown-item button {
+    background: none;
+    border: none;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    font-size: 14px;
+    color: #333;
+}
+
+.playlist-dropdown-item button:hover {
+    color: #2bbcff;
+}

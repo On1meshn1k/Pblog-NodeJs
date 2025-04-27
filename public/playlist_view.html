@@ -1,21 +1,13 @@
 <!DOCTYPE html>
 <html lang="ru">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/png" href="images/logo.png">
-    <link rel="stylesheet" href="css/style.css" type="text/css">
-    <script src="js/auth.js" defer></script>
-    <script src="js/script.js" defer></script>
-    <script src="js/main_script.js" defer></script>
-    <script src="js/channel_manager.js" defer></script>
-<!--    <script src="js/auth.js" defer></script>-->
-    <title>PBlog</title>
+    <title>Просмотр плейлиста</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
-
 <body>
-
     <nav class="flex-div">
         <div class="nav-left flex-div">
             <img src="images/menu.png" class="menu-icon">
@@ -66,16 +58,24 @@
         </div>
     </div>
 
-    <!-- main -->
+    <div class="container">
+        <div class="playlist-view-header">
+            <h1 id="playlistName"></h1>
+            <p id="playlistDescription" class="playlist-description"></p>
+            <div class="playlist-info">
+                <span id="videoCount" class="video-count"></span>
+                <span id="createdDate" class="created-date"></span>
+            </div>
+        </div>
 
-    <div class="container main-content">
-        <div class="video-container" id="videoList">
-            <!-- Видео будут добавляться динамически -->
+        <div id="videosList" class="video-container">
+            <!-- Видео будут добавлены здесь -->
         </div>
     </div>
 
-    <script type="module" src="js/load_videos.js"></script>
+    <script src="js/playlist_view.js"></script>
+    <script src="js/script.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/main_script.js"></script>
 </body>
-
-</html>
-
+</html> 

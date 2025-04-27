@@ -346,6 +346,44 @@ db.query(createCommentsTable, (err) => {
     }
 });
 
+// Создаем таблицу playlists, если она не существует
+const createPlaylistsTable = `
+CREATE TABLE IF NOT EXISTS playlists (
+    playlist_id Serial PRIMARY KEY,
+    user_id INT REFERENCES users(user_id) ON DELETE CASCADE,
+    playlist_name VARCHAR(100) NOT NULL,
+    playlist_description TEXT,
+    creation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)`;
+
+// Создаем таблицу playlists_videos, если она не существует
+const createPlaylistsVideosTable = `
+CREATE TABLE IF NOT EXISTS playlists_videos (
+    playlist_video_id Serial PRIMARY KEY,
+    playlist_id INT REFERENCES playlists(playlist_id) ON DELETE CASCADE,
+    video_id INT REFERENCES videos(video_id) ON DELETE CASCADE,
+    added_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (playlist_id, video_id)
+)`;
+
+// Сначала создаем таблицу playlists
+db.query(createPlaylistsTable, (err) => {
+    if (err) {
+        console.error('Ошибка при создании таблицы playlists:', err);
+    } else {
+        console.log('Таблица playlists успешно создана или уже существует');
+        
+        // После создания playlists создаем playlists_videos
+        db.query(createPlaylistsVideosTable, (err) => {
+            if (err) {
+                console.error('Ошибка при создании таблицы playlists_videos:', err);
+            } else {
+                console.log('Таблица playlists_videos успешно создана или уже существует');
+            }
+        });
+    }
+});
+
 // Главная страница
 app.get("/", (req, res) => {
     res.sendFile(path.join(__dirname, "public", "index.html"));
@@ -1905,8 +1943,49 @@ app.delete('/api/users/:id', checkAdmin, async (req, res) => {
             return res.status(403).json({ error: 'Нельзя удалить администратора' });
         }
 
-        await db.promise().query('DELETE FROM users WHERE user_id = ?', [userId]);
-        res.json({ message: 'Пользователь успешно удален' });
+        // Начинаем транзакцию
+        const connection = await db.promise();
+        await connection.beginTransaction();
+
+        try {
+            // Получаем все видео пользователя для удаления файлов
+            const [videos] = await connection.query('SELECT video_url, thumbnail_url FROM videos WHERE user_id = ?', [userId]);
+            
+            // Удаляем файлы видео и обложек
+            for (const video of videos) {
+                const videoPath = path.join(__dirname, 'public', video.video_url);
+                const thumbnailPath = path.join(__dirname, 'public', video.thumbnail_url);
+                
+                if (fs.existsSync(videoPath)) {
+                    fs.unlinkSync(videoPath);
+                }
+                if (fs.existsSync(thumbnailPath)) {
+                    fs.unlinkSync(thumbnailPath);
+                }
+            }
+
+            // Удаляем все связанные записи в правильном порядке
+            await connection.query('DELETE FROM subscriptions WHERE subscriber_id = ? OR channel_id IN (SELECT channel_id FROM channels WHERE user_id = ?)', [userId, userId]);
+            await connection.query('DELETE FROM video_likes WHERE user_id = ?', [userId]);
+            await connection.query('DELETE FROM video_dislikes WHERE user_id = ?', [userId]);
+            await connection.query('DELETE FROM video_views WHERE user_id = ?', [userId]);
+            await connection.query('DELETE FROM comments WHERE user_id = ?', [userId]);
+            await connection.query('DELETE FROM playlist_videos WHERE playlist_id IN (SELECT playlist_id FROM playlists WHERE user_id = ?)', [userId]);
+            await connection.query('DELETE FROM playlists WHERE user_id = ?', [userId]);
+            await connection.query('DELETE FROM videos WHERE user_id = ?', [userId]);
+            await connection.query('DELETE FROM channels WHERE user_id = ?', [userId]);
+            
+            // Удаляем самого пользователя
+            await connection.query('DELETE FROM users WHERE user_id = ?', [userId]);
+
+            // Подтверждаем транзакцию
+            await connection.commit();
+            res.json({ message: 'Пользователь и все связанные данные успешно удалены' });
+        } catch (error) {
+            // В случае ошибки откатываем транзакцию
+            await connection.rollback();
+            throw error;
+        }
     } catch (error) {
         console.error('Ошибка при удалении пользователя:', error);
         res.status(500).json({ error: 'Ошибка сервера' });
@@ -2014,6 +2093,303 @@ app.delete('/api/videos/:videoId/admin', checkAdmin, async (req, res) => {
     } catch (error) {
         console.error('Ошибка при удалении видео:', error);
         res.status(500).json({ error: 'Ошибка при удалении видео' });
+    }
+});
+
+// Маршрут для удаления комментария пользователем
+app.delete('/api/videos/:videoId/comments/:commentId', async (req, res) => {
+    try {
+        const videoId = req.params.videoId;
+        const commentId = req.params.commentId;
+        const { user_id } = req.body;
+
+        if (!user_id) {
+            return res.status(401).json({ 
+                message: 'Требуется авторизация',
+                error: 'UNAUTHORIZED'
+            });
+        }
+
+        // Проверяем существование комментария и права доступа
+        const [comment] = await db.promise().query(
+            'SELECT * FROM comments WHERE comment_id = ? AND video_id = ?',
+            [commentId, videoId]
+        );
+
+        if (comment.length === 0) {
+            return res.status(404).json({ 
+                message: 'Комментарий не найден',
+                error: 'COMMENT_NOT_FOUND'
+            });
+        }
+
+        // Проверяем, является ли пользователь автором комментария
+        if (comment[0].user_id !== user_id) {
+            return res.status(403).json({ 
+                message: 'Нет прав на удаление этого комментария',
+                error: 'FORBIDDEN'
+            });
+        }
+
+        // Удаляем комментарий
+        await db.promise().query(
+            'DELETE FROM comments WHERE comment_id = ?',
+            [commentId]
+        );
+
+        res.json({ 
+            message: 'Комментарий успешно удален',
+            comment_id: commentId
+        });
+    } catch (error) {
+        console.error('Ошибка при удалении комментария:', error);
+        res.status(500).json({ 
+            message: 'Ошибка при удалении комментария',
+            error: error.message
+        });
+    }
+});
+
+// Получение плейлистов пользователя
+app.get('/api/users/:userId/playlists', async (req, res) => {
+    try {
+        const userId = req.params.userId;
+        
+        const [playlists] = await db.promise().query(`
+            SELECT p.*, COUNT(pv.video_id) as video_count
+            FROM playlists p
+            LEFT JOIN playlists_videos pv ON p.playlist_id = pv.playlist_id
+            WHERE p.user_id = ?
+            GROUP BY p.playlist_id
+            ORDER BY p.creation_date DESC
+        `, [userId]);
+
+        res.json(playlists);
+    } catch (error) {
+        console.error('Ошибка при получении плейлистов:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// Создание нового плейлиста
+app.post('/api/playlists', async (req, res) => {
+    try {
+        const { user_id, name, description } = req.body;
+
+        if (!user_id || !name) {
+            return res.status(400).json({ 
+                message: 'ID пользователя и название плейлиста обязательны',
+                error: 'MISSING_FIELDS'
+            });
+        }
+
+        const [result] = await db.promise().query(
+            'INSERT INTO playlists (user_id, playlist_name, playlist_description) VALUES (?, ?, ?)',
+            [user_id, name, description]
+        );
+
+        const [newPlaylist] = await db.promise().query(
+            'SELECT * FROM playlists WHERE playlist_id = ?',
+            [result.insertId]
+        );
+
+        res.status(201).json(newPlaylist[0]);
+    } catch (error) {
+        console.error('Ошибка при создании плейлиста:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// Добавление видео в плейлист
+app.post('/api/playlists/:playlistId/videos', async (req, res) => {
+    try {
+        const playlistId = req.params.playlistId;
+        const { video_id, user_id } = req.body;
+
+        if (!video_id || !user_id) {
+            return res.status(400).json({ 
+                message: 'ID видео и ID пользователя обязательны',
+                error: 'MISSING_FIELDS'
+            });
+        }
+
+        // Проверяем, принадлежит ли плейлист пользователю
+        const [playlist] = await db.promise().query(
+            'SELECT * FROM playlists WHERE playlist_id = ? AND user_id = ?',
+            [playlistId, user_id]
+        );
+
+        if (playlist.length === 0) {
+            return res.status(403).json({ 
+                message: 'Нет прав на изменение этого плейлиста',
+                error: 'FORBIDDEN'
+            });
+        }
+
+        // Проверяем, не добавлено ли уже видео в плейлист
+        const [existing] = await db.promise().query(
+            'SELECT * FROM playlists_videos WHERE playlist_id = ? AND video_id = ?',
+            [playlistId, video_id]
+        );
+
+        if (existing.length > 0) {
+            return res.status(400).json({ 
+                message: 'Видео уже добавлено в плейлист',
+                error: 'VIDEO_ALREADY_EXISTS'
+            });
+        }
+
+        // Добавляем видео в плейлист
+        await db.promise().query(
+            'INSERT INTO playlists_videos (playlist_id, video_id) VALUES (?, ?)',
+            [playlistId, video_id]
+        );
+
+        res.status(201).json({ 
+            message: 'Видео успешно добавлено в плейлист',
+            playlist_id: playlistId,
+            video_id: video_id
+        });
+    } catch (error) {
+        console.error('Ошибка при добавлении видео в плейлист:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// Удаление видео из плейлиста
+app.delete('/api/playlists/:playlistId/videos/:videoId', async (req, res) => {
+    try {
+        const playlistId = req.params.playlistId;
+        const videoId = req.params.videoId;
+        const { user_id } = req.body;
+
+        if (!user_id) {
+            return res.status(401).json({ 
+                message: 'Требуется авторизация',
+                error: 'UNAUTHORIZED'
+            });
+        }
+
+        // Проверяем, принадлежит ли плейлист пользователю
+        const [playlist] = await db.promise().query(
+            'SELECT * FROM playlists WHERE playlist_id = ? AND user_id = ?',
+            [playlistId, user_id]
+        );
+
+        if (playlist.length === 0) {
+            return res.status(403).json({ 
+                message: 'Нет прав на изменение этого плейлиста',
+                error: 'FORBIDDEN'
+            });
+        }
+
+        // Удаляем видео из плейлиста
+        await db.promise().query(
+            'DELETE FROM playlists_videos WHERE playlist_id = ? AND video_id = ?',
+            [playlistId, videoId]
+        );
+
+        res.json({ 
+            message: 'Видео успешно удалено из плейлиста',
+            playlist_id: playlistId,
+            video_id: videoId
+        });
+    } catch (error) {
+        console.error('Ошибка при удалении видео из плейлиста:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// Получение видео из плейлиста
+app.get('/api/playlists/:playlistId/videos', async (req, res) => {
+    try {
+        const playlistId = req.params.playlistId;
+
+        const [videos] = await db.promise().query(`
+            SELECT 
+                v.*, 
+                u.username as author_name,
+                u.profile_picture_url as author_avatar,
+                c.channel_name,
+                c.logo_url as channel_avatar
+            FROM playlists_videos pv
+            JOIN videos v ON pv.video_id = v.video_id
+            JOIN users u ON v.user_id = u.user_id
+            JOIN channels c ON v.channel_id = c.channel_id
+            WHERE pv.playlist_id = ?
+            ORDER BY pv.added_date DESC
+        `, [playlistId]);
+
+        res.json(videos);
+    } catch (error) {
+        console.error('Ошибка при получении видео из плейлиста:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// Удаление плейлиста
+app.delete('/api/playlists/:playlistId', async (req, res) => {
+    try {
+        const playlistId = req.params.playlistId;
+        const { user_id } = req.body;
+
+        if (!user_id) {
+            return res.status(401).json({ 
+                message: 'Требуется авторизация',
+                error: 'UNAUTHORIZED'
+            });
+        }
+
+        // Проверяем, принадлежит ли плейлист пользователю
+        const [playlist] = await db.promise().query(
+            'SELECT * FROM playlists WHERE playlist_id = ? AND user_id = ?',
+            [playlistId, user_id]
+        );
+
+        if (playlist.length === 0) {
+            return res.status(403).json({ 
+                message: 'Нет прав на удаление этого плейлиста',
+                error: 'FORBIDDEN'
+            });
+        }
+
+        // Удаляем плейлист (каскадное удаление удалит все связанные записи)
+        await db.promise().query(
+            'DELETE FROM playlists WHERE playlist_id = ?',
+            [playlistId]
+        );
+
+        res.json({ 
+            message: 'Плейлист успешно удален',
+            playlist_id: playlistId
+        });
+    } catch (error) {
+        console.error('Ошибка при удалении плейлиста:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// Получение информации о плейлисте
+app.get('/api/playlists/:playlistId', async (req, res) => {
+    try {
+        const playlistId = req.params.playlistId;
+        
+        const [playlists] = await db.promise().query(`
+            SELECT p.*, COUNT(pv.video_id) as video_count
+            FROM playlists p
+            LEFT JOIN playlists_videos pv ON p.playlist_id = pv.playlist_id
+            WHERE p.playlist_id = ?
+            GROUP BY p.playlist_id
+        `, [playlistId]);
+
+        if (playlists.length === 0) {
+            return res.status(404).json({ error: 'Плейлист не найден' });
+        }
+
+        res.json(playlists[0]);
+    } catch (error) {
+        console.error('Ошибка при получении информации о плейлисте:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
     }
 });
 

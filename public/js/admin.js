@@ -232,9 +232,17 @@ document.addEventListener('DOMContentLoaded', () => {
     window.deleteUser = async (userId) => {
         showModal('Вы уверены, что хотите удалить этого пользователя?', async () => {
             try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    throw new Error('Требуется авторизация');
+                }
+
                 const response = await fetch(`/api/users/${userId}`, {
                     method: 'DELETE',
-                    headers
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
                 });
 
                 if (handleAuthError(response)) return;

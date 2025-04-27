@@ -1,21 +1,13 @@
 <!DOCTYPE html>
 <html lang="ru">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/png" href="images/logo.png">
-    <link rel="stylesheet" href="css/style.css" type="text/css">
-    <script src="js/auth.js" defer></script>
-    <script src="js/script.js" defer></script>
-    <script src="js/main_script.js" defer></script>
-    <script src="js/channel_manager.js" defer></script>
-<!--    <script src="js/auth.js" defer></script>-->
-    <title>PBlog</title>
+    <title>Мои плейлисты</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
-
 <body>
-
     <nav class="flex-div">
         <div class="nav-left flex-div">
             <img src="images/menu.png" class="menu-icon">
@@ -66,16 +58,39 @@
         </div>
     </div>
 
-    <!-- main -->
+    <div class="container">
+        <div class="playlists-header">
+            <h1>Мои плейлисты</h1>
+            <button id="createPlaylistBtn" class="create-playlist-btn">
+                <i class="fas fa-plus"></i> Создать плейлист
+            </button>
+        </div>
 
-    <div class="container main-content">
-        <div class="video-container" id="videoList">
-            <!-- Видео будут добавляться динамически -->
+        <!-- Модальное окно для создания плейлиста -->
+        <div id="createPlaylistModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Создать новый плейлист</h2>
+                <form id="createPlaylistForm">
+                    <div class="form-group">
+                        <label for="playlistName">Название плейлиста:</label>
+                        <input type="text" id="playlistName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="playlistDescription">Описание:</label>
+                        <textarea id="playlistDescription"></textarea>
+                    </div>
+                    <button type="submit" class="submit-btn">Создать</button>
+                </form>
+            </div>
+        </div>
+
+        <div id="playlistsList" class="playlists-grid">
+            <!-- Плейлисты будут добавлены здесь -->
         </div>
     </div>
 
-    <script type="module" src="js/load_videos.js"></script>
+    <script src="js/playlists.js"></script>
+    <script src="js/main_script.js"></script>
 </body>
-
-</html>
-
+</html> 
