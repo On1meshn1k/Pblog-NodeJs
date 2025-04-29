@@ -251,8 +251,7 @@ const createVideosTable = `
         video_url VARCHAR(255) NOT NULL,
         thumbnail_url VARCHAR(255) NOT NULL,
         upload_date DATETIME NOT NULL,
-        views INT DEFAULT 0,
-        duration INT DEFAULT 0
+        views INT DEFAULT 0
     )
 `;
 
@@ -821,7 +820,7 @@ app.post('/upload', uploadVideo.fields([{ name: 'video', maxCount: 1 }, { name: 
         console.log('SQL параметры:', [user_id, user.channel_id, title, description, videoUrl, thumbnailUrl]);
 
         const [result] = await db.promise().query(
-            'INSERT INTO videos (user_id, channel_id, title, description, video_url, thumbnail_url, upload_date, views, duration) VALUES (?, ?, ?, ?, ?, ?, NOW(), 0, 0)',
+            'INSERT INTO videos (user_id, channel_id, title, description, video_url, thumbnail_url, upload_date, views) VALUES (?, ?, ?, ?, ?, ?, NOW(), 0)',
             [user_id, user.channel_id, title, description, videoUrl, thumbnailUrl]
         );
 
