@@ -244,17 +244,15 @@ const checkAndAddAdminField = async () => {
 const createVideosTable = `
     CREATE TABLE IF NOT EXISTS videos (
         video_id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT NOT NULL,
-        channel_id INT NOT NULL,
+        user_id INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+        channel_id INT NOT NULL REFERENCES channels(channel_id) ON DELETE CASCADE,
         title VARCHAR(255) NOT NULL,
         description TEXT,
         video_url VARCHAR(255) NOT NULL,
         thumbnail_url VARCHAR(255) NOT NULL,
         upload_date DATETIME NOT NULL,
         views INT DEFAULT 0,
-        duration INT DEFAULT 0,
-        FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-        FOREIGN KEY (channel_id) REFERENCES channels(channel_id) ON DELETE CASCADE
+        duration INT DEFAULT 0
     )
 `;
 
@@ -270,11 +268,9 @@ db.query(createVideosTable, (err) => {
 const createLikesTable = `
     CREATE TABLE IF NOT EXISTS video_likes (
         like_id INT AUTO_INCREMENT PRIMARY KEY,
-        video_id INT NOT NULL,
-        user_id INT NOT NULL,
+        video_id INT NOT NULL REFERENCES videos(video_id) ON DELETE CASCADE,
+        user_id INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
         like_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (video_id) REFERENCES videos(video_id) ON DELETE CASCADE,
-        FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
         UNIQUE KEY unique_like (video_id, user_id)
     )
 `;
@@ -283,11 +279,9 @@ const createLikesTable = `
 const createDislikesTable = `
     CREATE TABLE IF NOT EXISTS video_dislikes (
         dislike_id INT AUTO_INCREMENT PRIMARY KEY,
-        video_id INT NOT NULL,
-        user_id INT NOT NULL,
+        video_id INT NOT NULL REFERENCES videos(video_id) ON DELETE CASCADE,
+        user_id INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
         dislike_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (video_id) REFERENCES videos(video_id) ON DELETE CASCADE,
-        FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
         UNIQUE KEY unique_dislike (video_id, user_id)
     )
 `;
@@ -314,9 +308,8 @@ const createChannelsTable = `
 CREATE TABLE IF NOT EXISTS channels (
     channel_id INT PRIMARY KEY AUTO_INCREMENT,
     channel_name VARCHAR(255) NOT NULL,
-    user_id INT NOT NULL,
+    user_id INT NOT NULL REFERENCES users(user_id),
     created_at DATETIME NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(user_id),
     UNIQUE KEY unique_channel_name_per_user (channel_name, user_id)
 )`;
 
@@ -579,9 +572,11 @@ app.post("/register", async (req, res) => {
             `INSERT INTO channels (
                 user_id, 
                 channel_name, 
-                channel_description
-            ) VALUES (?, ?, ?)`,
-            [userId, username, `Канал пользователя ${username}`]
+                channel_description,
+                creation_date,
+                logo_url
+            ) VALUES (?, ?, ?, NOW(), ?)`,
+            [userId, username, `Канал пользователя ${username}`, null]
         );
 
         await connection.commit();
@@ -1515,7 +1510,7 @@ app.get('/api/users/:userId/channels', async (req, res) => {
         const [channels] = await db.promise().query(`
             SELECT * FROM channels 
             WHERE user_id = ? 
-            ORDER BY created_at DESC
+            ORDER BY creation_date DESC
         `, [userId]);
 
         res.json(channels);
@@ -2392,6 +2387,7 @@ app.get('/api/playlists/:playlistId', async (req, res) => {
         res.status(500).json({ error: 'Ошибка сервера' });
     }
 });
+
 // Получение истории просмотров пользователя
 app.get('/api/users/:userId/history', async (req, res) => {
     try {
