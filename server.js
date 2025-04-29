@@ -2392,6 +2392,49 @@ app.get('/api/playlists/:playlistId', async (req, res) => {
         res.status(500).json({ error: 'Ошибка сервера' });
     }
 });
+// Получение истории просмотров пользователя
+app.get('/api/users/:userId/history', async (req, res) => {
+    try {
+        const userId = req.params.userId;
+        
+        const [history] = await db.promise().query(`
+            SELECT 
+                v.video_id,
+                v.title,
+                v.thumbnail_url,
+                v.views,
+                c.channel_name,
+                vv.view_date
+            FROM video_views vv
+            JOIN videos v ON vv.video_id = v.video_id
+            JOIN channels c ON v.channel_id = c.channel_id
+            WHERE vv.user_id = ?
+            ORDER BY vv.view_date DESC
+        `, [userId]);
+
+        res.json(history);
+    } catch (error) {
+        console.error('Ошибка при получении истории просмотров:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// Очистка истории просмотров пользователя
+app.delete('/api/users/:userId/history', async (req, res) => {
+    try {
+        const userId = req.params.userId;
+        
+        await db.promise().query(
+            'DELETE FROM video_views WHERE user_id = ?',
+            [userId]
+        );
+
+        res.json({ message: 'История просмотров успешно очищена' });
+    } catch (error) {
+        console.error('Ошибка при очистке истории просмотров:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
 
 // Запуск сервера
 app.listen(PORT, () => {
