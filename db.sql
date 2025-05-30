@@ -19,7 +19,8 @@ CREATE TABLE channels (
     user_id INT REFERENCES users(user_id) ON DELETE CASCADE,
     channel_name VARCHAR(100) NOT NULL UNIQUE,
     channel_description TEXT,
-    creation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    creation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    logo_url VARCHAR(255) DEFAULT 'images/default-avatar.png'
 );
 
 CREATE TABLE videos (

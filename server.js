@@ -275,7 +275,7 @@ db.query(`
         password_hash VARCHAR(255) NOT NULL,
         registration_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        profile_picture VARCHAR(255),
+        profile_picture_url VARCHAR(255) DEFAULT '/images/default-avatar.png',
         is_verified BOOLEAN DEFAULT FALSE,
         is_admin BOOLEAN DEFAULT FALSE,
         reset_token VARCHAR(255),
@@ -399,7 +399,9 @@ CREATE TABLE IF NOT EXISTS channels (
     channel_id INT PRIMARY KEY AUTO_INCREMENT,
     channel_name VARCHAR(255) NOT NULL,
     user_id INT NOT NULL REFERENCES users(user_id),
-    created_at DATETIME NOT NULL,
+    creation_date DATETIME NOT NULL,
+    logo_url VARCHAR(255) DEFAULT 'images/default-avatar.png',
+    channel_description TEXT,
     UNIQUE KEY unique_channel_name_per_user (channel_name, user_id)
 )`;
 
@@ -443,10 +445,10 @@ CREATE TABLE IF NOT EXISTS playlists (
 const createSubscriptionsTable = `
 CREATE TABLE IF NOT EXISTS subscriptions (
     subscription_id Serial PRIMARY KEY,
-    user_id INT REFERENCES users(user_id) ON DELETE CASCADE,
+    subscriber_id INT REFERENCES users(user_id) ON DELETE CASCADE,
     channel_id INT REFERENCES channels(channel_id) ON DELETE CASCADE,
     subscription_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY unique_subscription (user_id, channel_id)
+    UNIQUE KEY unique_subscription (subscriber_id, channel_id)
 )`;
 
 db.query(createSubscriptionsTable, (err) => {
