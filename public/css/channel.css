@@ -70,6 +70,22 @@ img {
     font-weight: bold;
     margin: 0 0 10px 0;
     color: #333;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.verified-badge {
+    color: #2bbcff;
+    font-size: 20px;
+    display: inline-flex;
+    align-items: center;
+}
+
+.verified-badge svg {
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
 }
 
 .channel-description {
@@ -179,4 +195,26 @@ img {
 
 .delete-video-btn i {
     font-size: 14px;
+}
+
+.verify-email-btn {
+    background-color: #ff4444;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: background-color 0.3s;
+    display: none;
+}
+
+.verify-email-btn:hover {
+    background-color: #cc0000;
+}
+
+.verify-email-btn.visible {
+    display: inline-block;
 }

@@ -8,6 +8,8 @@ const multer = require("multer");
 const fs = require('fs');
 const ffmpeg = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
+const nodemailer = require('nodemailer');
+const crypto = require('crypto');
 
 // Устанавливаем путь к FFmpeg
 ffmpeg.setFfmpegPath(ffmpegPath);
@@ -83,7 +85,7 @@ const avatarStorage = multer.diskStorage({
 const uploadVideo = multer({ 
     storage: storage,
     limits: {
-        fileSize: 500 * 1024 * 1024, // Увеличиваем до 500MB
+        fileSize: 1024 * 1024 * 1024, // 1GB
         files: 2 // Максимум 2 файла (видео и обложка)
     },
     fileFilter: (req, file, cb) => {
@@ -101,7 +103,7 @@ const uploadVideo = multer({
 const uploadAvatar = multer({ 
     storage: avatarStorage,
     limits: {
-        fileSize: 5 * 1024 * 1024 // 5MB
+        fileSize: 100 * 1024 * 1024 // 100MB
     },
     fileFilter: (req, file, cb) => {
         if (file.mimetype.startsWith('image/')) {
@@ -207,8 +209,9 @@ db.connect((err) => {
     }
     console.log('Подключено к базе данных MySQL');
 
-    // Проверяем и добавляем поле is_admin
+    // Проверяем и добавляем необходимые поля
     checkAndAddAdminField();
+    checkAndAddVerificationFields();
 });
 
 // Функция для проверки и добавления поля is_admin
@@ -240,6 +243,58 @@ const checkAndAddAdminField = async () => {
     }
 };
 
+// Функция для проверки и добавления полей верификации
+const checkAndAddVerificationFields = async () => {
+    try {
+        // Проверяем существование поля verification_token
+        const [columns] = await db.promise().query(`
+            SHOW COLUMNS FROM users LIKE 'verification_token'
+        `);
+
+        if (columns.length === 0) {
+            // Добавляем поля верификации, если их нет
+            await db.promise().query(`
+                ALTER TABLE users 
+                ADD COLUMN verification_token VARCHAR(255),
+                ADD COLUMN verification_token_expires DATETIME
+            `);
+
+            console.log('Поля верификации успешно добавлены в таблицу users');
+        }
+    } catch (error) {
+        console.error('Ошибка при проверке полей верификации:', error);
+    }
+};
+
+// Создание таблицы пользователей
+db.query(`
+    CREATE TABLE IF NOT EXISTS users (
+        user_id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(255) NOT NULL,
+        email VARCHAR(255) NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        registration_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        profile_picture VARCHAR(255),
+        is_verified BOOLEAN DEFAULT FALSE,
+        is_admin BOOLEAN DEFAULT FALSE,
+        reset_token VARCHAR(255),
+        reset_token_expires TIMESTAMP,
+        verification_token VARCHAR(255),
+        verification_token_expires DATETIME,
+        UNIQUE KEY unique_username (username),
+        UNIQUE KEY unique_email (email),
+        UNIQUE KEY unique_verification_token (verification_token),
+        UNIQUE KEY unique_reset_token (reset_token)
+    )
+`, (err) => {
+    if (err) {
+        console.error('Ошибка при создании таблицы users:', err);
+    } else {
+        console.log('Таблица users успешно создана или уже существует');
+    }
+});
+
 // Создаем таблицу videos, если она не существует
 const createVideosTable = `
     CREATE TABLE IF NOT EXISTS videos (
@@ -255,11 +310,47 @@ const createVideosTable = `
     )
 `;
 
+const createVideoViewsTable = `
+    CREATE TABLE IF NOT EXISTS video_views (
+        view_id INT AUTO_INCREMENT PRIMARY KEY,
+        video_id INT NOT NULL REFERENCES videos(video_id) ON DELETE CASCADE,
+        user_id INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+        view_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_view (video_id, user_id)
+    )
+`;
+
+db.query(createVideoViewsTable, (err) => {
+    if (err) {
+        console.error('Ошибка при создании таблицы videos_views:', err);
+    } else {
+        console.log('Таблица video_views создана или уже существует');
+    }
+});
+
 db.query(createVideosTable, (err) => {
     if (err) {
         console.error('Ошибка при создании таблицы videos:', err);
     } else {
         console.log('Таблица videos создана или уже существует');
+    }
+});
+
+const createVideoAccessTable = `
+    CREATE TABLE IF NOT EXISTS video_access (
+        access_id Serial PRIMARY KEY,
+        video_id INT REFERENCES videos(video_id) ON DELETE CASCADE,
+        access_type VARCHAR(20) NOT NULL CHECK (access_type IN ('public', 'private', 'unlisted')),
+        password_hash VARCHAR(255),
+        allowed_user_id INT REFERENCES users(user_id) ON DELETE CASCADE
+    )
+`;
+
+db.query(createVideoAccessTable, (err) => {
+    if (err) {
+        console.error('Ошибка при создании таблицы video_access;', err);
+    } else {
+        console.log('Таблица video_access создана или уже существует')
     }
 });
 
@@ -348,15 +439,23 @@ CREATE TABLE IF NOT EXISTS playlists (
     creation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )`;
 
-// Создаем таблицу playlists_videos, если она не существует
-const createPlaylistsVideosTable = `
-CREATE TABLE IF NOT EXISTS playlists_videos (
-    playlist_video_id Serial PRIMARY KEY,
-    playlist_id INT REFERENCES playlists(playlist_id) ON DELETE CASCADE,
-    video_id INT REFERENCES videos(video_id) ON DELETE CASCADE,
-    added_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (playlist_id, video_id)
+// Создаем таблицу subscriptions, если она не существует
+const createSubscriptionsTable = `
+CREATE TABLE IF NOT EXISTS subscriptions (
+    subscription_id Serial PRIMARY KEY,
+    user_id INT REFERENCES users(user_id) ON DELETE CASCADE,
+    channel_id INT REFERENCES channels(channel_id) ON DELETE CASCADE,
+    subscription_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_subscription (user_id, channel_id)
 )`;
+
+db.query(createSubscriptionsTable, (err) => {
+    if (err) {
+        console.error('Ошибка при создании таблицы subscriptions:', err);
+    } else {
+        console.log('Таблица subscriptions успешно создана или уже существует');
+    }
+});
 
 // Сначала создаем таблицу playlists
 db.query(createPlaylistsTable, (err) => {
@@ -375,6 +474,16 @@ db.query(createPlaylistsTable, (err) => {
         });
     }
 });
+
+// Создаем таблицу playlists_videos, если она не существует
+const createPlaylistsVideosTable = `
+CREATE TABLE IF NOT EXISTS playlists_videos (
+    playlist_video_id Serial PRIMARY KEY,
+    playlist_id INT REFERENCES playlists(playlist_id) ON DELETE CASCADE,
+    video_id INT REFERENCES videos(video_id) ON DELETE CASCADE,
+    added_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (playlist_id, video_id)
+)`;
 
 // Главная страница
 app.get("/", (req, res) => {
@@ -544,6 +653,10 @@ app.post("/register", async (req, res) => {
             }
         }
 
+        // Генерируем токен подтверждения
+        const verificationToken = crypto.randomBytes(32).toString('hex');
+        const verificationTokenExpires = new Date(Date.now() + 24 * 3600000); // Токен действителен 24 часа
+
         // Хеширование пароля
         const hashedPassword = await bcrypt.hash(password, 10);
         const defaultProfilePicture = '/images/default-avatar.png';
@@ -557,9 +670,12 @@ app.post("/register", async (req, res) => {
                 password_hash, 
                 profile_picture_url, 
                 registration_date, 
-                last_login
-            ) VALUES (?, ?, ?, ?, NOW(), NOW())`,
-            [username, email, hashedPassword, defaultProfilePicture]
+                last_login,
+                verification_token,
+                verification_token_expires,
+                is_verified
+            ) VALUES (?, ?, ?, ?, NOW(), NOW(), ?, ?, FALSE)`,
+            [username, email, hashedPassword, defaultProfilePicture, verificationToken, verificationTokenExpires]
         );
 
         const userId = userResult.insertId;
@@ -578,11 +694,28 @@ app.post("/register", async (req, res) => {
             [userId, username, `Канал пользователя ${username}`, null]
         );
 
+        // Отправляем email с подтверждением
+        const verificationUrl = `http://localhost:3000/verify-email.html?token=${verificationToken}`;
+        const mailOptions = {
+            from: 'pashenka.gorbunov.05@mail.ru',
+            to: email,
+            subject: 'Подтверждение регистрации',
+            html: `
+                <p>Здравствуйте, ${username}!</p>
+                <p>Спасибо за регистрацию. Для подтверждения вашего аккаунта перейдите по ссылке:</p>
+                <p><a href="${verificationUrl}">${verificationUrl}</a></p>
+                <p>Ссылка действительна в течение 24 часов.</p>
+                <p>Если вы не регистрировались на нашем сайте, проигнорируйте это письмо.</p>
+            `
+        };
+
+        await transporter.sendMail(mailOptions);
+
         await connection.commit();
         console.log('Транзакция завершена успешно');
 
         return res.status(201).json({
-            message: "Регистрация успешна",
+            message: "Регистрация успешна. Пожалуйста, проверьте вашу почту для подтверждения аккаунта.",
             user: {
                 user_id: userId,
                 username,
@@ -1661,7 +1794,8 @@ app.get('/api/channels/:id', async (req, res) => {
                 c.*,
                 u.username as owner_name,
                 u.profile_picture_url as owner_avatar,
-                u.user_id
+                u.user_id,
+                u.is_verified
             FROM channels c
             LEFT JOIN users u ON c.user_id = u.user_id
             WHERE c.channel_id = ?
@@ -1675,20 +1809,7 @@ app.get('/api/channels/:id', async (req, res) => {
             });
         }
 
-        const channel = channels[0];
-        console.log('Найден канал:', channel);
-
-        res.json({
-            channel_id: channel.channel_id,
-            channel_name: channel.channel_name,
-            channel_description: channel.channel_description,
-            channel_avatar: channel.logo_url || '/images/default-avatar.png',
-            owner_name: channel.owner_name,
-            owner_avatar: channel.owner_avatar || '/images/default-avatar.png',
-            user_id: channel.user_id,
-            subscribers_count: channel.subscriber_count || 0
-        });
-
+        res.json(channels[0]);
     } catch (error) {
         console.error('Ошибка при получении информации о канале:', error);
         res.status(500).json({ 
@@ -1724,33 +1845,20 @@ app.get('/api/channels/user/:userId', async (req, res) => {
         const userId = req.params.userId;
         
         // Получаем информацию о канале
-        const [channels] = await db.promise().query(
-            'SELECT * FROM channels WHERE user_id = ?',
-            [userId]
-        );
+        const [channels] = await db.promise().query(`
+            SELECT 
+                c.*,
+                u.is_verified
+            FROM channels c
+            JOIN users u ON c.user_id = u.user_id
+            WHERE c.user_id = ?
+        `, [userId]);
 
         if (channels.length === 0) {
             return res.status(404).json({ error: 'Канал не найден' });
         }
 
-        const channel = channels[0];
-
-        // Получаем количество подписчиков
-        const [subscribers] = await db.promise().query(
-            'SELECT COUNT(*) as count FROM subscriptions WHERE channel_id = ?',
-            [channel.channel_id]
-        );
-
-        // Формируем ответ
-        const response = {
-            channel_id: channel.channel_id,
-            channel_name: channel.channel_name,
-            logo_url: channel.logo_url,
-            channel_description: channel.channel_description,
-            subscribers_count: subscribers[0].count
-        };
-
-        res.json(response);
+        res.json(channels[0]);
     } catch (error) {
         console.error('Ошибка при получении информации о канале:', error);
         res.status(500).json({ error: 'Ошибка сервера' });
@@ -1963,9 +2071,7 @@ app.delete('/api/users/:id', checkAdmin, async (req, res) => {
             await connection.query('DELETE FROM video_likes WHERE user_id = ?', [userId]);
             await connection.query('DELETE FROM video_dislikes WHERE user_id = ?', [userId]);
             await connection.query('DELETE FROM video_views WHERE user_id = ?', [userId]);
-            await connection.query('DELETE FROM comments WHERE user_id = ?', [userId]);
-            await connection.query('DELETE FROM playlist_videos WHERE playlist_id IN (SELECT playlist_id FROM playlists WHERE user_id = ?)', [userId]);
-            await connection.query('DELETE FROM playlists WHERE user_id = ?', [userId]);
+            await connection.query('DELETE FROM playlists_videos WHERE playlist_id IN (SELECT playlist_id FROM playlists WHERE user_id = ?)', [userId]);
             await connection.query('DELETE FROM videos WHERE user_id = ?', [userId]);
             await connection.query('DELETE FROM channels WHERE user_id = ?', [userId]);
             
@@ -2038,7 +2144,7 @@ app.delete('/api/videos/:videoId/owner', authenticateToken, async (req, res) => 
         await db.promise().query('DELETE FROM video_dislikes WHERE video_id = ?', [videoId]);
         await db.promise().query('DELETE FROM comments WHERE video_id = ?', [videoId]);
         await db.promise().query('DELETE FROM video_views WHERE video_id = ?', [videoId]);
-        await db.promise().query('DELETE FROM playlist_videos WHERE video_id = ?', [videoId]);
+        await db.promise().query('DELETE FROM playlists_videos WHERE video_id = ?', [videoId]);
         await db.promise().query('DELETE FROM videos WHERE video_id = ?', [videoId]);
 
         res.json({ message: 'Видео успешно удалено' });
@@ -2080,7 +2186,7 @@ app.delete('/api/videos/:videoId/admin', checkAdmin, async (req, res) => {
         await db.promise().query('DELETE FROM video_dislikes WHERE video_id = ?', [videoId]);
         await db.promise().query('DELETE FROM comments WHERE video_id = ?', [videoId]);
         await db.promise().query('DELETE FROM video_views WHERE video_id = ?', [videoId]);
-        await db.promise().query('DELETE FROM playlist_videos WHERE video_id = ?', [videoId]);
+        await db.promise().query('DELETE FROM playlists_videos WHERE video_id = ?', [videoId]);
         await db.promise().query('DELETE FROM videos WHERE video_id = ?', [videoId]);
 
         res.json({ message: 'Видео успешно удалено' });
@@ -2434,4 +2540,173 @@ app.delete('/api/users/:userId/history', async (req, res) => {
 // Запуск сервера
 app.listen(PORT, () => {
     console.log(`Запущен на сервере http://localhost:${PORT}`);
+});
+
+// Настройка транспорта для отправки email
+const transporter = nodemailer.createTransport({
+    host: 'smtp.mail.ru',
+    port: 465,
+    secure: true,
+    auth: {
+        user: 'pashenka.gorbunov.05@mail.ru',
+        pass: 'aLWF6C0qlH4np32v6Rcv' // Здесь нужно использовать пароль приложения
+    }
+});
+
+// Эндпоинт для запроса сброса пароля
+app.post('/api/forgot-password', async (req, res) => {
+    const { email } = req.body;
+
+    try {
+        // Проверяем существование пользователя
+        const [user] = await db.promise().query('SELECT * FROM users WHERE email = ?', [email]);
+        
+        if (user.length === 0) {
+            return res.status(404).json({ message: 'Пользователь с таким email не найден' });
+        }
+
+        // Генерируем токен сброса пароля
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        const resetTokenExpires = new Date(Date.now() + 3600000); // Токен действителен 1 час
+
+        // Сохраняем токен в базе данных
+        await db.promise().query(
+            'UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE email = ?',
+            [resetToken, resetTokenExpires, email]
+        );
+
+        // Отправляем email с ссылкой для сброса пароля
+        const resetUrl = `http://localhost:3000/reset-password.html?token=${resetToken}`;
+        const mailOptions = {
+            from: 'pashenka.gorbunov.05@mail.ru',
+            to: email,
+            subject: 'Сброс пароля',
+            html: `
+                <p>Вы запросили сброс пароля.</p>
+                <p>Для сброса пароля перейдите по ссылке: <a href="${resetUrl}">${resetUrl}</a></p>
+                <p>Ссылка действительна в течение 1 часа.</p>
+                <p>Если вы не запрашивали сброс пароля, проигнорируйте это письмо.</p>
+            `
+        };
+
+        await transporter.sendMail(mailOptions);
+        res.json({ message: 'Инструкции по сбросу пароля отправлены на ваш email' });
+    } catch (error) {
+        console.error('Ошибка при запросе сброса пароля:', error);
+        res.status(500).json({ message: 'Произошла ошибка при обработке запроса' });
+    }
+});
+
+// Эндпоинт для сброса пароля
+app.post('/api/reset-password', async (req, res) => {
+    const { token, newPassword } = req.body;
+
+    try {
+        // Проверяем токен и его срок действия
+        const [user] = await db.promise().query(
+            'SELECT * FROM users WHERE reset_token = ? AND reset_token_expires > NOW()',
+            [token]
+        );
+
+        if (user.length === 0) {
+            return res.status(400).json({ message: 'Недействительный или просроченный токен' });
+        }
+
+        // Хешируем новый пароль
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        // Обновляем пароль и очищаем токен
+        await db.promise().query(
+            'UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL WHERE reset_token = ?',
+            [hashedPassword, token]
+        );
+
+        res.json({ message: 'Пароль успешно изменен' });
+    } catch (error) {
+        console.error('Ошибка при сбросе пароля:', error);
+        res.status(500).json({ message: 'Произошла ошибка при сбросе пароля' });
+    }
+});
+
+// Эндпоинт для подтверждения email
+app.post('/api/verify-email', async (req, res) => {
+    const { token } = req.body;
+
+    try {
+        // Проверяем токен и его срок действия
+        const [user] = await db.promise().query(
+            'SELECT * FROM users WHERE verification_token = ? AND verification_token_expires > NOW()',
+            [token]
+        );
+
+        if (user.length === 0) {
+            return res.status(400).json({ message: 'Недействительный или просроченный токен' });
+        }
+
+        // Обновляем статус подтверждения и очищаем токен
+        await db.promise().query(
+            'UPDATE users SET is_verified = TRUE, verification_token = NULL, verification_token_expires = NULL WHERE verification_token = ?',
+            [token]
+        );
+
+        res.json({ message: 'Email успешно подтвержден' });
+    } catch (error) {
+        console.error('Ошибка при подтверждении email:', error);
+        res.status(500).json({ message: 'Произошла ошибка при подтверждении email' });
+    }
+});
+
+// Эндпоинт для повторной отправки письма подтверждения
+app.post('/api/resend-verification', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ message: 'Email не указан' });
+    }
+
+    // Проверяем существование пользователя
+    const [users] = await db.promise().query('SELECT * FROM users WHERE email = ?', [email]);
+    
+    if (users.length === 0) {
+      return res.status(404).json({ message: 'Пользователь не найден' });
+    }
+
+    const user = users[0];
+
+    // Если email уже подтвержден
+    if (user.is_verified) {
+      return res.status(400).json({ message: 'Email уже подтвержден' });
+    }
+
+    // Генерируем новый токен подтверждения
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 часа
+
+    // Обновляем токен в базе данных
+    await db.promise().query(
+      'UPDATE users SET verification_token = ?, verification_token_expires = ? WHERE email = ?',
+      [verificationToken, verificationTokenExpires, email]
+    );
+
+    // Отправляем письмо с подтверждением
+    const mailOptions = {
+      from: 'pashenka.gorbunov.05@mail.ru',
+      to: email,
+      subject: 'Подтверждение email адреса',
+      html: `
+        <h1>Подтверждение email адреса</h1>
+        <p>Для подтверждения вашего email адреса, пожалуйста, перейдите по следующей ссылке:</p>
+        <a href="http://localhost:3000/verify-email.html?token=${verificationToken}">Подтвердить email</a>
+        <p>Ссылка действительна в течение 24 часов.</p>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    res.json({ message: 'Письмо с подтверждением отправлено' });
+  } catch (error) {
+    console.error('Ошибка при отправке письма подтверждения:', error);
+    res.status(500).json({ message: 'Ошибка при отправке письма подтверждения' });
+  }
 });

@@ -78,7 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const videoList = document.getElementById('adminVideoList');
         videoList.innerHTML = videos.map(video => `
-            <div class="video-item">
+            <div class="video-item" data-video-id="${video.video_id}">
                 <div class="item-info">
                     <h3>${video.title}</h3>
                     <p>Автор: ${video.uploader_name}</p>
@@ -174,9 +174,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error('Требуется авторизация');
             }
 
-            const response = await fetch(`/api/videos/${videoId}`, {
+            const response = await fetch(`/api/videos/${videoId}/admin`, {
                 method: 'DELETE',
                 headers: {
+                    'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 }
             });
@@ -189,7 +190,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (!response.ok) {
-                throw new Error('Ошибка при удалении видео');
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Ошибка при удалении видео');
             }
 
             // Удаляем элемент видео из DOM

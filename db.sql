@@ -9,7 +9,9 @@ CREATE TABLE users (
     last_login TIMESTAMP,
     profile_picture_url VARCHAR(255),
     is_verified BOOLEAN DEFAULT FALSE,
-    is_admin BOOLEAN DEFAULT FALSE
+    is_admin BOOLEAN DEFAULT FALSE,
+    reset_token VARCHAR(255),
+    reset_token_expires TIMESTAMP
 );
 
 CREATE TABLE channels (

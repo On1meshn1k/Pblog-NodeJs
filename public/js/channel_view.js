@@ -132,8 +132,19 @@ document.addEventListener("DOMContentLoaded", async () => {
             const channel = await response.json();
             
             // Обновляем информацию о канале
-            if (channelNameSpan) channelNameSpan.textContent = channel.channel_name;
-            if (channelLogo) channelLogo.src = channel.channel_avatar || "images/default-avatar.png";
+            if (channelNameSpan) {
+                channelNameSpan.innerHTML = `
+                    ${channel.channel_name}
+                    ${channel.is_verified ? `
+                        <span class="verified-badge" title="Подтвержденный канал">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-1.5 14.5l-4-4 1.5-1.5 2.5 2.5 5-5 1.5 1.5-6.5 6.5z"/>
+                            </svg>
+                        </span>
+                    ` : ''}
+                `;
+            }
+            if (channelLogo) channelLogo.src = channel.logo_url || "images/default-avatar.png";
             if (channelDescription) channelDescription.textContent = channel.channel_description || "Описание отсутствует";
             
             // Обновляем счетчик подписчиков

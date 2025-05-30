@@ -20,7 +20,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Проверка размера файла
     const checkFileSize = (file, maxSizeMB) => {
         if (file.size > maxSizeMB * 1024 * 1024) {
-            throw new Error(`Размер файла ${file.name} превышает ${maxSizeMB}MB`);
+            const sizeText = maxSizeMB >= 1024 
+                ? `${maxSizeMB / 1024}GB` 
+                : `${maxSizeMB}MB`;
+            throw new Error(`Размер файла ${file.name} превышает ${sizeText}`);
         }
     };
 
@@ -37,10 +40,10 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             // Проверяем размер файлов
             if (videoInput.files[0]) {
-                checkFileSize(videoInput.files[0], 500); // 500MB для видео
+                checkFileSize(videoInput.files[0], 1024); // 1GB для видео
             }
             if (thumbnailInput.files[0]) {
-                checkFileSize(thumbnailInput.files[0], 5); // 5MB для обложки
+                checkFileSize(thumbnailInput.files[0], 100); // 100MB для обложки
             }
 
             const formData = new FormData();
