@@ -52,11 +52,13 @@ document.addEventListener('DOMContentLoaded', () => {
             formData.append('title', titleInput.value);
             formData.append('description', descriptionInput.value);
             formData.append('user_id', user.user_id);
+            formData.append('access_type', document.getElementById('accessType').value);
 
             console.log('Отправка данных:', {
                 title: titleInput.value,
                 description: descriptionInput.value,
                 user_id: user.user_id,
+                access_type: document.getElementById('accessType').value,
                 video: videoInput.files[0]?.name,
                 thumbnail: thumbnailInput.files[0]?.name
             });

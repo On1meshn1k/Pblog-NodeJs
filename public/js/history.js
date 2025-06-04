@@ -48,14 +48,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const now = new Date();
         const diff = now - date;
 
+        // Если прошло меньше минуты
+        if (diff < 60 * 1000) {
+            return 'только что';
+        }
+
+        // Если прошло меньше часа
+        if (diff < 60 * 60 * 1000) {
+            const minutes = Math.floor(diff / (60 * 1000));
+            return `${minutes} ${getMinutesText(minutes)} назад`;
+        }
+
         // Если прошло меньше суток
         if (diff < 24 * 60 * 60 * 1000) {
             const hours = Math.floor(diff / (60 * 60 * 1000));
-            if (hours === 0) {
-                const minutes = Math.floor(diff / (60 * 1000));
-                return `${minutes} минут назад`;
-            }
-            return `${hours} часов назад`;
+            return `${hours} ${getHoursText(hours)} назад`;
         }
 
         // Если прошло больше суток
@@ -64,6 +71,19 @@ document.addEventListener('DOMContentLoaded', () => {
             month: 'long',
             year: 'numeric'
         });
+    }
+
+    // Вспомогательные функции для склонения слов
+    function getMinutesText(minutes) {
+        const cases = [2, 0, 1, 1, 1, 2];
+        const titles = ['минута', 'минуты', 'минут'];
+        return titles[(minutes % 100 > 4 && minutes % 100 < 20) ? 2 : cases[(minutes % 10 < 5) ? minutes % 10 : 5]];
+    }
+
+    function getHoursText(hours) {
+        const cases = [2, 0, 1, 1, 1, 2];
+        const titles = ['час', 'часа', 'часов'];
+        return titles[(hours % 100 > 4 && hours % 100 < 20) ? 2 : cases[(hours % 10 < 5) ? hours % 10 : 5]];
     }
 
     // Очистка истории

@@ -114,36 +114,50 @@ const uploadAvatar = multer({
     }
 });
 
-// Middleware
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, "public")));
+// Настройка MIME-типов
+const mimeTypes = {
+    '.js': 'application/javascript',
+    '.css': 'text/css',
+    '.html': 'text/html',
+    '.json': 'application/json',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.svg': 'image/svg+xml',
+    '.mp4': 'video/mp4',
+    '.webm': 'video/webm',
+    '.ogg': 'video/ogg',
+    '.mov': 'video/quicktime',
+    '.avi': 'video/x-msvideo',
+    '.wmv': 'video/x-ms-wmv',
+    '.flv': 'video/x-flv',
+    '.mkv': 'video/x-matroska',
+    '.mpeg': 'video/mpeg',
+    '.mpg': 'video/mpeg'
+};
 
 // Настройка статических файлов с правильными MIME-типами
-app.use('/uploads', (req, res, next) => {
-    const filePath = path.join(__dirname, 'public', req.path);
-    const ext = path.extname(filePath).toLowerCase();
-    
-    // Устанавливаем правильные MIME-типы для видео
-    const mimeTypes = {
-        '.mp4': 'video/mp4',
-        '.webm': 'video/webm',
-        '.ogg': 'video/ogg',
-        '.mov': 'video/quicktime',
-        '.avi': 'video/x-msvideo',
-        '.wmv': 'video/x-ms-wmv',
-        '.flv': 'video/x-flv',
-        '.mkv': 'video/x-matroska',
-        '.mpeg': 'video/mpeg',
-        '.mpg': 'video/mpeg'
-    };
-
-    if (mimeTypes[ext]) {
-        res.setHeader('Content-Type', mimeTypes[ext]);
+app.use(express.static(path.join(__dirname, 'public'), {
+    setHeaders: (res, filePath) => {
+        const ext = path.extname(filePath).toLowerCase();
+        if (mimeTypes[ext]) {
+            res.setHeader('Content-Type', mimeTypes[ext]);
+        }
     }
-    
-    next();
-});
+}));
+
+// Middleware для парсинга JSON
+app.use(express.json());
+
+// Настройка статических файлов
+app.use(express.static(path.join(__dirname, 'public'), {
+    setHeaders: (res, path) => {
+        if (path.endsWith('.js')) {
+            res.setHeader('Content-Type', 'application/javascript');
+        }
+    }
+}));
 
 // Middleware для конвертации видео в MP4 при необходимости
 app.use('/uploads/videos', async (req, res, next) => {
@@ -310,6 +324,7 @@ const createVideosTable = `
     )
 `;
 
+// Создаем таблицу video_views, если она не существует
 const createVideoViewsTable = `
     CREATE TABLE IF NOT EXISTS video_views (
         view_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -322,7 +337,7 @@ const createVideoViewsTable = `
 
 db.query(createVideoViewsTable, (err) => {
     if (err) {
-        console.error('Ошибка при создании таблицы videos_views:', err);
+        console.error('Ошибка при создании таблицы video_views:', err);
     } else {
         console.log('Таблица video_views создана или уже существует');
     }
@@ -519,6 +534,7 @@ const checkAdmin = async (req, res, next) => {
 app.get("/api/videos", (req, res) => {
     console.log('Получен запрос на список видео');
     const searchQuery = req.query.search || '';
+    const userId = req.query.user_id; // Получаем ID пользователя из query параметров
     
     let query = `
         SELECT 
@@ -531,14 +547,22 @@ app.get("/api/videos", (req, res) => {
             v.views,
             u.username as uploader_name,
             c.channel_name,
-            c.logo_url
+            c.logo_url,
+            va.access_type,
+            v.user_id
         FROM videos v
         LEFT JOIN users u ON v.user_id = u.user_id
         LEFT JOIN channels c ON v.channel_id = c.channel_id
+        LEFT JOIN video_access va ON v.video_id = va.video_id
+        WHERE va.access_type = 'public'
     `;
 
+    if (userId) {
+        query += ` OR (va.access_type = 'private' AND v.user_id = ?)`;
+    }
+
     if (searchQuery) {
-        query += ` WHERE v.title LIKE ? OR v.description LIKE ? OR c.channel_name LIKE ?`;
+        query += ` AND (v.title LIKE ? OR v.description LIKE ? OR c.channel_name LIKE ?)`;
     }
 
     query += ` ORDER BY v.upload_date DESC`;
@@ -546,7 +570,9 @@ app.get("/api/videos", (req, res) => {
     console.log('Выполняется SQL запрос:', query);
 
     const searchParam = `%${searchQuery}%`;
-    const params = searchQuery ? [searchParam, searchParam, searchParam] : [];
+    const params = userId 
+        ? (searchQuery ? [userId, searchParam, searchParam, searchParam] : [userId])
+        : (searchQuery ? [searchParam, searchParam, searchParam] : []);
 
     db.query(query, params, (err, results) => {
         if (err) {
@@ -844,16 +870,24 @@ app.post('/upload', uploadVideo.fields([{ name: 'video', maxCount: 1 }, { name: 
         console.log('Тело запроса:', req.body);
         console.log('Файлы:', req.files);
 
-        const { title, description, user_id } = req.body;
+        const { title, description, user_id, access_type } = req.body;
         const videoFile = req.files['video']?.[0];
         const thumbnailFile = req.files['thumbnail']?.[0];
 
         // Проверяем наличие всех необходимых данных
-        if (!title || !description || !user_id) {
-            console.log('Отсутствуют обязательные поля:', { title, description, user_id });
+        if (!title || !description || !user_id || !access_type) {
+            console.log('Отсутствуют обязательные поля:', { title, description, user_id, access_type });
             return res.status(400).json({ 
                 message: 'Все поля обязательны для заполнения', 
                 error: 'MISSING_FIELDS' 
+            });
+        }
+
+        // Проверяем валидность типа доступа
+        if (!['public', 'private', 'unlisted'].includes(access_type)) {
+            return res.status(400).json({
+                message: 'Неверный тип доступа',
+                error: 'INVALID_ACCESS_TYPE'
             });
         }
 
@@ -959,6 +993,12 @@ app.post('/upload', uploadVideo.fields([{ name: 'video', maxCount: 1 }, { name: 
             [user_id, user.channel_id, title, description, videoUrl, thumbnailUrl]
         );
 
+        // Добавляем запись о доступе к видео
+        await db.promise().query(
+            'INSERT INTO video_access (video_id, access_type) VALUES (?, ?)',
+            [result.insertId, access_type]
+        );
+
         console.log('Видео успешно загружено:', result.insertId);
         res.status(201).json({ 
             message: 'Видео успешно загружено', 
@@ -1024,20 +1064,33 @@ app.post('/api/videos/:id/view', async (req, res) => {
             [userId, videoId]
         );
 
+        console.log('Проверка недавних просмотров:', {
+            userId,
+            videoId,
+            recentViewsCount: recentViews.length
+        });
+
         if (recentViews.length === 0) {
-            // Добавляем запись о просмотре
-            await db.promise().query(
-                'INSERT INTO video_views (user_id, video_id, view_date) VALUES (?, ?, NOW())',
-                [userId, videoId]
-            );
+            try {
+                // Добавляем запись о просмотре
+                const [viewResult] = await db.promise().query(
+                    'INSERT INTO video_views (user_id, video_id, view_date) VALUES (?, ?, NOW())',
+                    [userId, videoId]
+                );
+                console.log('Добавлена запись о просмотре:', viewResult);
 
-            // Увеличиваем общий счетчик просмотров
-            await db.promise().query(
-                'UPDATE videos SET views = views + 1 WHERE video_id = ?',
-                [videoId]
-            );
+                // Увеличиваем общий счетчик просмотров
+                const [updateResult] = await db.promise().query(
+                    'UPDATE videos SET views = views + 1 WHERE video_id = ?',
+                    [videoId]
+                );
+                console.log('Обновлен счетчик просмотров:', updateResult);
 
-            console.log('Просмотр зарегистрирован для пользователя:', userId);
+                console.log('Просмотр зарегистрирован для пользователя:', userId);
+            } catch (error) {
+                console.error('Ошибка при добавлении просмотра:', error);
+                throw error;
+            }
         } else {
             console.log('Просмотр уже зарегистрирован в последние 24 часа');
         }
@@ -1191,20 +1244,24 @@ app.get('/debug/videos', async (req, res) => {
 app.get('/api/videos/:id', async (req, res) => {
     try {
         const videoId = req.params.id;
+        const userId = req.query.user_id; // Получаем ID пользователя из query параметров
         console.log('Получен запрос на получение видео:', videoId);
 
-        // Получаем информацию о видео и канале
+        // Получаем информацию о видео, канале и доступе
         const [videos] = await db.promise().query(`
             SELECT 
                 v.*,
+                c.channel_id,
                 c.channel_name,
                 c.logo_url,
                 u.username as author_name,
                 u.profile_picture_url as author_avatar,
-                u.user_id
+                u.user_id as author_id,
+                va.access_type
             FROM videos v
             LEFT JOIN channels c ON v.channel_id = c.channel_id
             LEFT JOIN users u ON v.user_id = u.user_id
+            LEFT JOIN video_access va ON v.video_id = va.video_id
             WHERE v.video_id = ?
         `, [videoId]);
 
@@ -1217,7 +1274,25 @@ app.get('/api/videos/:id', async (req, res) => {
         }
 
         const video = videos[0];
-        console.log('Найдено видео:', video);
+
+        // Проверяем доступ к видео
+        if (video.access_type === 'private') {
+            if (!userId || parseInt(userId) !== video.user_id) {
+                return res.status(403).json({
+                    message: 'Нет доступа к этому видео',
+                    error: 'ACCESS_DENIED'
+                });
+            }
+        } else if (video.access_type === 'unlisted') {
+            // Для непубличных видео проверяем, что запрос пришел по прямой ссылке
+            const referer = req.headers.referer;
+            if (!referer || !referer.includes(`/video.html?id=${videoId}`)) {
+                return res.status(403).json({
+                    message: 'Нет доступа к этому видео',
+                    error: 'ACCESS_DENIED'
+                });
+            }
+        }
 
         // Проверяем существование файла видео
         const videoPath = path.join(__dirname, 'public', video.video_url);
@@ -1241,7 +1316,9 @@ app.get('/api/videos/:id', async (req, res) => {
             channel_avatar: video.logo_url || '/images/default-avatar.png',
             author_name: video.author_name,
             author_avatar: video.author_avatar || '/images/default-avatar.png',
-            user_id: video.user_id
+            author_id: video.author_id,
+            user_id: video.user_id,
+            access_type: video.access_type
         });
 
     } catch (error) {
@@ -1826,14 +1903,22 @@ app.get('/api/channels/:id', async (req, res) => {
 app.get('/api/channels/:channelId/videos', async (req, res) => {
     try {
         const channelId = req.params.channelId;
-        const [videos] = await db.promise().query(
-            `SELECT v.*, u.username as author_name 
-             FROM videos v 
-             JOIN users u ON v.user_id = u.user_id 
-             WHERE v.channel_id = ? 
-             ORDER BY v.upload_date DESC`,
-            [channelId]
-        );
+        const userId = req.query.user_id; // Получаем ID пользователя из query параметров
+
+        let query = `
+            SELECT v.*, u.username as author_name, va.access_type 
+            FROM videos v 
+            JOIN users u ON v.user_id = u.user_id 
+            LEFT JOIN video_access va ON v.video_id = va.video_id
+            WHERE v.channel_id = ? 
+            AND (
+                va.access_type = 'public' 
+                OR (va.access_type = 'private' AND v.user_id = ?)
+            )
+            ORDER BY v.upload_date DESC
+        `;
+
+        const [videos] = await db.promise().query(query, [channelId, userId || 0]);
         res.json(videos);
     } catch (error) {
         console.error('Ошибка при получении видео канала:', error);
@@ -2711,4 +2796,66 @@ app.post('/api/resend-verification', async (req, res) => {
     console.error('Ошибка при отправке письма подтверждения:', error);
     res.status(500).json({ message: 'Ошибка при отправке письма подтверждения' });
   }
+});
+
+// Маршрут для изменения типа доступа к видео
+app.put('/api/videos/:id/access', async (req, res) => {
+    try {
+        const videoId = req.params.id;
+        const { user_id, access_type } = req.body;
+
+        if (!user_id || !access_type) {
+            return res.status(400).json({
+                message: 'ID пользователя и тип доступа обязательны',
+                error: 'MISSING_FIELDS'
+            });
+        }
+
+        // Проверяем валидность типа доступа
+        if (!['public', 'private', 'unlisted'].includes(access_type)) {
+            return res.status(400).json({
+                message: 'Неверный тип доступа',
+                error: 'INVALID_ACCESS_TYPE'
+            });
+        }
+
+        // Проверяем, является ли пользователь владельцем видео
+        const [videos] = await db.promise().query(
+            'SELECT user_id FROM videos WHERE video_id = ?',
+            [videoId]
+        );
+
+        if (videos.length === 0) {
+            return res.status(404).json({
+                message: 'Видео не найдено',
+                error: 'VIDEO_NOT_FOUND'
+            });
+        }
+
+        if (videos[0].user_id !== parseInt(user_id)) {
+            return res.status(403).json({
+                message: 'Нет прав на изменение доступа к этому видео',
+                error: 'FORBIDDEN'
+            });
+        }
+
+        // Обновляем тип доступа
+        await db.promise().query(
+            'UPDATE video_access SET access_type = ? WHERE video_id = ?',
+            [access_type, videoId]
+        );
+
+        res.json({
+            message: 'Тип доступа успешно обновлен',
+            video_id: videoId,
+            access_type: access_type
+        });
+
+    } catch (error) {
+        console.error('Ошибка при изменении типа доступа:', error);
+        res.status(500).json({
+            message: 'Ошибка при изменении типа доступа',
+            error: error.message
+        });
+    }
 });

@@ -45,9 +45,13 @@ document.addEventListener("DOMContentLoaded", function() { // Убедимся, 
       if (channelLogo) channelLogo.src = channel.logo_url || "images/default-avatar.png";
       if (channelDescription) channelDescription.textContent = channel.channel_description || "Описание отсутствует";
       
-      // Обновляем счетчик подписчиков
-      if (subscribersCount) {
-        subscribersCount.textContent = `${channel.subscribers_count || 0} подписчиков`;
+      // Получаем актуальное количество подписчиков
+      const subscribersResponse = await fetch(`/api/channels/${channel.channel_id}/subscription/${userId}`);
+      if (subscribersResponse.ok) {
+        const subscribersData = await subscribersResponse.json();
+        if (subscribersCount) {
+          subscribersCount.textContent = `${subscribersData.subscribersCount} подписчиков`;
+        }
       }
       
       // Показываем кнопку подтверждения email только если пользователь не подтвердил email
@@ -70,31 +74,34 @@ document.addEventListener("DOMContentLoaded", function() { // Убедимся, 
   // Функция для загрузки видео канала
   const loadChannelVideos = async (channelId) => {
     try {
-      const response = await fetch(`/api/channels/${channelId}/videos`);
-      if (!response.ok) {
-        throw new Error('Ошибка при загрузке видео');
-      }
-      
-      const videos = await response.json();
-      console.log('Загружены видео пользователя:', videos);
+        const user = JSON.parse(localStorage.getItem("user"));
+        if (!user) {
+            window.location.href = "enter.html";
+            return;
+        }
 
-      // Очищаем контейнер
-      videoList.innerHTML = '';
-
-      // Добавляем каждое видео
-      videos.forEach(video => {
-        const videoElement = createVideoElement(video);
-        videoList.appendChild(videoElement);
-      });
-
-      // Если видео нет, показываем сообщение
-      if (videos.length === 0) {
-        videoList.innerHTML = '<p class="no-videos">У вас пока нет загруженных видео</p>';
-      }
-
+        const response = await fetch(`/api/channels/${channelId}/videos?user_id=${user.user_id}`);
+        if (!response.ok) {
+            throw new Error('Ошибка при загрузке видео канала');
+        }
+        const videos = await response.json();
+        
+        // Очищаем список видео
+        videoList.innerHTML = '';
+        
+        if (videos.length === 0) {
+            videoList.innerHTML = '<p class="no-videos">У вас пока нет видео</p>';
+            return;
+        }
+        
+        // Отображаем видео
+        videos.forEach(video => {
+            const videoElement = createVideoElement(video);
+            videoList.appendChild(videoElement);
+        });
     } catch (error) {
-      console.error('Ошибка:', error);
-      videoList.innerHTML = '<p class="error">Ошибка при загрузке видео</p>';
+        console.error('Ошибка при загрузке видео канала:', error);
+        videoList.innerHTML = '<p class="error-message">Ошибка при загрузке видео</p>';
     }
   };
 

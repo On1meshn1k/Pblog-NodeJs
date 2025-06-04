@@ -450,3 +450,65 @@
 .playlist-dropdown-item button:hover {
     color: #2bbcff;
 }
+
+.video-info {
+    margin-top: 20px;
+    padding: 20px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.video-access {
+    display: inline-block;
+    margin: 10px 0;
+    padding: 5px 10px;
+    background: #f0f0f0;
+    border-radius: 4px;
+    font-size: 14px;
+    color: #666;
+}
+
+.access-control {
+    display: none;
+    margin: 15px 0;
+    padding: 15px;
+    background: #f8f8f8;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+}
+
+.access-control label {
+    display: block;
+    margin-bottom: 10px;
+    font-weight: 500;
+    color: #333;
+}
+
+.access-control select {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #fff;
+}
+
+.access-control button {
+    padding: 8px 16px;
+    background: #2196F3;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.access-control button:hover {
+    background: #1976D2;
+}
+
+.access-control button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}

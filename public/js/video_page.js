@@ -34,6 +34,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const likeCount = document.getElementById('likeCount');
     const dislikeCount = document.getElementById('dislikeCount');
     const subscribeButton = document.getElementById('subscribeButton');
+    const videoAccess = document.getElementById('videoAccess');
+    const accessControl = document.getElementById('accessControl');
+    const accessTypeSelect = document.getElementById('accessTypeSelect');
+    const updateAccessButton = document.getElementById('updateAccessButton');
 
     // Обновляем UI в зависимости от авторизации
     if (user) {
@@ -307,86 +311,105 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Функция для загрузки информации о видео
+    // Функция для отображения типа доступа
+    const displayAccessType = (accessType, isOwner) => {
+        const accessTypes = {
+            'public': 'Публичный',
+            'private': 'Приватный',
+            'unlisted': 'Непубличный'
+        };
+
+        if (videoAccess) {
+            videoAccess.textContent = `Тип доступа: ${accessTypes[accessType]}`;
+        }
+
+        if (accessControl && isOwner) {
+            accessControl.style.display = 'block';
+            accessTypeSelect.value = accessType;
+        }
+    };
+
+    // Обработчик изменения типа доступа
+    if (updateAccessButton) {
+        updateAccessButton.addEventListener('click', async () => {
+            try {
+                const user = JSON.parse(localStorage.getItem('user'));
+                if (!user) {
+                    window.location.href = 'enter.html';
+                    return;
+                }
+
+                const response = await fetch(`/api/videos/${videoId}/access`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        user_id: user.user_id,
+                        access_type: accessTypeSelect.value
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Ошибка при изменении типа доступа');
+                }
+
+                const result = await response.json();
+                console.log('Тип доступа обновлен:', result);
+                displayAccessType(result.access_type, true);
+
+            } catch (error) {
+                console.error('Ошибка при изменении типа доступа:', error);
+                alert(error.message || 'Произошла ошибка при изменении типа доступа');
+            }
+        });
+    }
+
+    // Обновляем функцию загрузки видео
     const loadVideo = async () => {
         try {
-            console.log('Загрузка информации о видео:', videoId);
-            const response = await fetch(`/api/videos/${videoId}`);
-            
-            if (response.status === 404) {
-                throw new Error('Видео не найдено');
-            }
-            
+            const user = JSON.parse(localStorage.getItem('user'));
+            const userId = user ? user.user_id : null;
+
+            const response = await fetch(`/api/videos/${videoId}${userId ? `?user_id=${userId}` : ''}`);
             if (!response.ok) {
                 throw new Error('Ошибка при загрузке видео');
             }
 
             const video = await response.json();
-            console.log('Получены данные о видео:', video);
+            console.log('Получено видео:', video);
 
-            if (!video.video_url) {
-                throw new Error('URL видео не найден');
-            }
-
-            // Определяем MIME-тип видео
-            const ext = video.video_url.split('.').pop().toLowerCase();
-            const mimeTypes = {
-                'mp4': 'video/mp4',
-                'webm': 'video/webm',
-                'ogg': 'video/ogg',
-                'mov': 'video/quicktime',
-                'avi': 'video/x-msvideo',
-                'wmv': 'video/x-ms-wmv',
-                'flv': 'video/x-flv',
-                'mkv': 'video/x-matroska',
-                'mpeg': 'video/mpeg',
-                'mpg': 'video/mpeg'
-            };
-
-            const mimeType = mimeTypes[ext] || 'video/mp4';
-
-            // Проверяем поддержку формата
-            if (!canPlayType(videoPlayer, mimeType)) {
-                console.warn(`Формат ${mimeType} не поддерживается браузером`);
-            }
-
-            // Устанавливаем источник видео
-            videoPlayer.src = video.video_url;
-            videoPlayer.type = mimeType;
-
-            // Заполняем информацию о видео
+            // Обновляем информацию о видео
+            if (videoPlayer) videoPlayer.src = video.video_url;
             if (videoTitle) videoTitle.textContent = video.title;
-            if (videoDescription) videoDescription.textContent = video.description || 'Описание отсутствует';
-            if (videoViews) videoViews.textContent = formatViews(video.views || 0);
-            if (uploadDate) uploadDate.textContent = formatDate(video.upload_date);
-            if (videoUploader) videoUploader.textContent = video.author_name || 'Неизвестный автор';
-            if (authorAvatar) authorAvatar.src = video.channel_avatar || 'images/default-avatar.png';
-            
-            // Обновляем счетчик просмотров
-            await updateVideoViews(videoId);
-            
-            // Если есть ссылка на автора, устанавливаем её
-            if (authorLink && video.channel_id) {
+            if (videoDescription) videoDescription.textContent = video.description;
+            if (videoViews) videoViews.textContent = formatViews(video.views);
+            if (videoUploader) videoUploader.textContent = video.author_name;
+            if (authorAvatar) authorAvatar.src = video.author_avatar || 'images/default-avatar.png';
+            if (authorLink) {
                 authorLink.href = `channel_view.html?id=${video.channel_id}`;
+                console.log('Ссылка на канал автора:', authorLink.href);
             }
-            
-            // Обновляем состояние кнопки подписки, если есть ID канала
-            if (video.channel_id) {
-                await updateSubscriptionButton(video.channel_id);
-            }
-            
-            // Загружаем рейтинги видео
+
+            // Отображаем тип доступа
+            displayAccessType(video.access_type, video.user_id === userId);
+
+            // Обновляем состояние кнопки подписки
+            await updateSubscriptionButton(video.channel_id);
+
+            // Загружаем рейтинг
             await updateRatings();
-            
-            // Загружаем другие видео
-            await loadOtherVideos();
-            
+
             // Загружаем комментарии
             await loadComments();
 
-            // Загружаем плейлисты пользователя
-            await loadUserPlaylists();
-            
+            // Загружаем другие видео
+            await loadOtherVideos();
+
+            // Регистрируем просмотр при загрузке страницы
+            await updateVideoViews(videoId);
+
         } catch (error) {
             console.error('Ошибка при загрузке видео:', error);
             if (errorMessage) {
@@ -420,7 +443,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Обновляем отображение количества просмотров
             if (result.viewCount > 0) {
-                const currentViews = parseInt(videoViews.textContent) || 0;
+                const currentViews = parseInt(videoViews.textContent.replace(/[^0-9]/g, '')) || 0;
                 videoViews.textContent = formatViews(currentViews + 1);
             }
         } catch (error) {
@@ -433,6 +456,13 @@ document.addEventListener('DOMContentLoaded', () => {
         videoPlayer.addEventListener('loadeddata', () => {
             console.log('Видео загружено и готово к воспроизведению');
             if (errorMessage) errorMessage.style.display = 'none';
+        });
+
+        videoPlayer.addEventListener('play', () => {
+            console.log('Воспроизведение видео началось');
+            if (errorMessage) {
+                errorMessage.style.display = 'none';
+            }
         });
 
         videoPlayer.addEventListener('error', (e) => {
@@ -485,26 +515,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 errorMessage.style.display = 'block';
             }
         });
-
-        videoPlayer.addEventListener('playing', () => {
-            console.log('Воспроизведение видео началось');
-            if (errorMessage) {
-                errorMessage.style.display = 'none';
-            }
-        });
     }
 
     // Функция для загрузки других видео
     const loadOtherVideos = async () => {
         try {
-            const response = await fetch('/api/videos');
+            const user = JSON.parse(localStorage.getItem('user'));
+            const userId = user ? user.user_id : null;
+
+            const response = await fetch(`/api/videos${userId ? `?user_id=${userId}` : ''}`);
             if (!response.ok) {
                 throw new Error('Ошибка при загрузке видео');
             }
             const videos = await response.json();
             
-            // Фильтруем текущее видео из списка
-            const otherVideos = videos.filter(video => video.video_id !== parseInt(videoId));
+            // Фильтруем видео:
+            // 1. Исключаем текущее видео
+            // 2. Показываем публичные видео всем
+            // 3. Показываем непубличные видео только владельцу
+            const otherVideos = videos.filter(video => {
+                if (video.video_id === parseInt(videoId)) return false;
+                if (video.access_type === 'public') return true;
+                if (video.access_type === 'unlisted') return false;
+                if (video.access_type === 'private') return video.user_id === userId;
+                return false;
+            });
             
             // Отображаем видео
             displayOtherVideos(otherVideos);

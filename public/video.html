@@ -53,6 +53,16 @@
                 <div class="video-meta">
                     <span id="videoViews">0 просмотров</span>
                     <span id="videoDate"></span>
+                    <span id="videoAccess" class="video-access"></span>
+                </div>
+                <div id="accessControl" class="access-control" style="display: none;">
+                    <label for="accessTypeSelect">Изменить тип доступа:</label>
+                    <select id="accessTypeSelect">
+                        <option value="public">Публичный</option>
+                        <option value="private">Приватный</option>
+                        <option value="unlisted">Непубличный</option>
+                    </select>
+                    <button id="updateAccessButton">Обновить</button>
                 </div>
                 <div class="rating-buttons">
                     <button id="likeButton">👍</button>
