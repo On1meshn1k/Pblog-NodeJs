@@ -5,23 +5,30 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/png" href="images/logo.png">
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css" type="text/css">
     <link rel="stylesheet" href="css/channel.css">
     <link rel="stylesheet" href="css/video_page.css">
-    <title>Просмотр видео</title>
+    <script src="js/auth.js" defer></script>
+    <script src="js/script.js" defer></script>
+    <script src="js/video_page.js" defer></script>
+    <script src="js/search.js" defer></script>
+    <title>Просмотр видео - PBlog</title>
 </head>
 
 <body>
 
     <nav class="flex-div">
         <div class="nav-left flex-div">
+            <img src="images/menu.png" class="menu-icon">
             <a href="index.html"><img src="images/logo.png" class="logo"></a>
         </div>
         <div class="nav-middle flex-div">
-            <div class="search-box flex-div">
-                <input type="text" placeholder="Поиск">
-                <img src="images/search.png">
-            </div>
+            <form class="search-form">
+                <input type="text" class="search-input" placeholder="Поиск видео...">
+                <button type="submit" class="search-icon">
+                    <img src="images/search.png">
+                </button>
+            </form>
         </div>
         <div class="nav-right flex-div">
             <img src="images/upload.png" class="upload" id="upload">

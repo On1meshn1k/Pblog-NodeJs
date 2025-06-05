@@ -7,7 +7,11 @@
     <link rel="icon" type="image/png" href="images/logo.png">
     <link rel="stylesheet" href="css/style.css" type="text/css">
     <link rel="stylesheet" href="css/channel.css" type="text/css">
-    <title>Канал автора</title>
+    <script src="js/auth.js" defer></script>
+    <script src="js/script.js" defer></script>
+    <script src="js/channel_view.js" defer></script>
+    <script src="js/search.js" defer></script>
+    <title>Просмотр канала - PBlog</title>
 </head>
 
 <body>
@@ -17,10 +21,12 @@
             <a href="index.html"><img src="images/logo.png" class="logo"></a>
         </div>
         <div class="nav-middle flex-div">
-            <div class="search-box flex-div">
-                <input type="text" placeholder="Поиск">
-                <img src="images/search.png">
-            </div>
+            <form class="search-form">
+                <input type="text" class="search-input" placeholder="Поиск видео...">
+                <button type="submit" class="search-icon">
+                    <img src="images/search.png">
+                </button>
+            </form>
         </div>
         <div class="nav-right flex-div">
             <img src="images/upload.png" class="upload" id="upload">

@@ -96,6 +96,7 @@ document.addEventListener("DOMContentLoaded", function() { // Убедимся, 
         
         // Отображаем видео
         videos.forEach(video => {
+            // Показываем все видео владельцу канала (включая приватные и непубличные)
             const videoElement = createVideoElement(video);
             videoList.appendChild(videoElement);
         });

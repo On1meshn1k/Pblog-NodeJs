@@ -161,7 +161,6 @@
 .videobar .thumbnail-container {
     position: relative;
     width: 168px;
-    height: 94px;
     background-color: #000;
     overflow: hidden;
     flex-shrink: 0;
@@ -452,7 +451,7 @@
 }
 
 .video-info {
-    margin-top: 20px;
+    /* margin-top: 20px; */
     padding: 20px;
     background: #fff;
     border-radius: 8px;

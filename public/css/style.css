@@ -1245,3 +1245,37 @@ video {
     color: #666;
     margin-top: 5px;
 }
+
+.search-form {
+    display: flex;
+    align-items: center;
+    background: #fff;
+    border-radius: 20px;
+    padding: 5px 15px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    margin: 0 20px;
+    flex: 1;
+    max-width: 600px;
+}
+
+.search-input {
+    border: none;
+    outline: none;
+    background: none;
+    padding: 8px;
+    width: 100%;
+    font-size: 16px;
+}
+
+.search-icon {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    color: #666;
+    transition: color 0.2s;
+}
+
+.search-icon:hover {
+    color: #333;
+}

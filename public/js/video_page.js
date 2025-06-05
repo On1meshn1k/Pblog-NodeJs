@@ -388,7 +388,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (videoUploader) videoUploader.textContent = video.author_name;
             if (authorAvatar) authorAvatar.src = video.author_avatar || 'images/default-avatar.png';
             if (authorLink) {
-                authorLink.href = `channel_view.html?id=${video.channel_id}`;
+                // Проверяем, является ли текущий пользователь автором видео
+                if (video.user_id === userId) {
+                    authorLink.href = 'channel.html';
+                } else {
+                    authorLink.href = `channel_view.html?id=${video.channel_id}`;
+                }
                 console.log('Ссылка на канал автора:', authorLink.href);
             }
 

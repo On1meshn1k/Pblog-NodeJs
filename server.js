@@ -1905,6 +1905,18 @@ app.get('/api/channels/:channelId/videos', async (req, res) => {
         const channelId = req.params.channelId;
         const userId = req.query.user_id; // Получаем ID пользователя из query параметров
 
+        // Получаем информацию о канале
+        const [channel] = await db.promise().query(
+            'SELECT user_id FROM channels WHERE channel_id = ?',
+            [channelId]
+        );
+
+        if (channel.length === 0) {
+            return res.status(404).json({ error: 'Канал не найден' });
+        }
+
+        const isOwner = channel[0].user_id === parseInt(userId);
+
         let query = `
             SELECT v.*, u.username as author_name, va.access_type 
             FROM videos v 
@@ -1913,7 +1925,7 @@ app.get('/api/channels/:channelId/videos', async (req, res) => {
             WHERE v.channel_id = ? 
             AND (
                 va.access_type = 'public' 
-                OR (va.access_type = 'private' AND v.user_id = ?)
+                OR (va.access_type IN ('private', 'unlisted') AND v.user_id = ?)
             )
             ORDER BY v.upload_date DESC
         `;
@@ -2857,5 +2869,50 @@ app.put('/api/videos/:id/access', async (req, res) => {
             message: 'Ошибка при изменении типа доступа',
             error: error.message
         });
+    }
+});
+
+// API для поиска видео
+app.get('/api/search', async (req, res) => {
+    const searchQuery = req.query.q;
+    
+    if (!searchQuery) {
+        return res.json({ success: false, message: 'Поисковый запрос не указан' });
+    }
+
+    try {
+        const query = `
+            SELECT v.*, c.channel_name, 
+                   DATE_FORMAT(v.upload_date, '%d.%m.%Y') as formatted_date
+            FROM videos v
+            JOIN channels c ON v.channel_id = c.channel_id
+            WHERE v.title LIKE ? OR v.description LIKE ?
+            ORDER BY v.upload_date DESC
+        `;
+        
+        const searchPattern = `%${searchQuery}%`;
+        
+        db.query(query, [searchPattern, searchPattern], (error, results) => {
+            if (error) {
+                console.error('Ошибка при поиске видео:', error);
+                return res.json({ success: false, message: 'Ошибка при поиске видео' });
+            }
+
+            const videos = results.map(video => ({
+                id: video.video_id,
+                title: video.title,
+                description: video.description,
+                thumbnail: video.thumbnail_url,
+                video_url: video.video_url,
+                views: video.views,
+                channel_name: video.channel_name,
+                upload_date: video.formatted_date
+            }));
+
+            res.json({ success: true, videos });
+        });
+    } catch (error) {
+        console.error('Ошибка при поиске видео:', error);
+        res.json({ success: false, message: 'Ошибка при поиске видео' });
     }
 });
