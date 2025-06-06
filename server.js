@@ -19,14 +19,14 @@ const PORT = process.env.PORT || 3000;
 
 // Настройка соединения с базой данных
 const db = mysql.createConnection({
-    host: process.env.DB_HOST || "localhost",
-    user: process.env.DB_USER || "root",
-    password: process.env.DB_PASSWORD || "root",
-    database: process.env.DB_NAME || "pblog"
+    host: "localhost",
+    user: "root",
+    password: "root",
+    database: "pblog"
 });
 
 // Секретный ключ для JWT
-const SECRET_KEY = process.env.JWT_SECRET || "game";
+const SECRET_KEY = "game";
 
 // Создаем необходимые директории при запуске сервера
 const uploadDirs = [
