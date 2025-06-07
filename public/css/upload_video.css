@@ -66,24 +66,41 @@ body {
 
   .form-group label {
     display: block;
-    margin-bottom: 8px;
+    margin-bottom: 5px;
     font-weight: bold;
-    color: #333;
   }
 
   .form-group input[type="file"],
   .form-group input[type="text"],
-  .form-group textarea {
+  .form-group textarea,
+  .form-group select {
     width: 100%;
-    padding: 10px;
+    padding: 8px;
     border: 1px solid #ddd;
-    border-radius: 5px;
+    border-radius: 4px;
     font-size: 16px;
   }
 
   .form-group textarea {
     height: 100px;
-    resize: none;
+    resize: vertical;
+  }
+
+  .access-type-description {
+    margin-top: 10px;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+  }
+
+  .access-type-description p {
+    margin: 5px 0;
+    font-size: 14px;
+    color: #666;
+  }
+
+  .access-type-description strong {
+    color: #333;
   }
 
   .submit-button {

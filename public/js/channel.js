@@ -8,11 +8,12 @@ document.addEventListener("DOMContentLoaded", function() { // Убедимся, 
   const channelLogo = document.getElementById("channelLogo"); // Исправляем селектор
   const channelDescription = document.getElementById("channelDescription");
   const editProfileButton = document.getElementById("editProfile");
+  const verifyEmailButton = document.getElementById("verifyEmail");
   const videoList = document.getElementById("videoList");
   const subscribersCount = document.getElementById("subscribersCount");
   
   // Проверка, что элементы существуют
-  if (!usernameSpan || !logoutButton || !uploadButton || !authLink || !channelNameSpan || !channelLogo || !channelDescription || !editProfileButton || !videoList) {
+  if (!usernameSpan || !logoutButton || !uploadButton || !authLink || !channelNameSpan || !channelLogo || !channelDescription || !editProfileButton || !videoList || !verifyEmailButton) {
     console.error("Один или несколько элементов не найдены.");
     return;
   }
@@ -29,13 +30,37 @@ document.addEventListener("DOMContentLoaded", function() { // Убедимся, 
       const channel = await response.json();
       
       // Обновляем информацию о канале
-      if (channelNameSpan) channelNameSpan.textContent = channel.channel_name;
+      if (channelNameSpan) {
+        channelNameSpan.innerHTML = `
+            ${channel.channel_name}
+            ${channel.is_verified ? `
+                <span class="verified-badge" title="Подтвержденный канал">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-1.5 14.5l-4-4 1.5-1.5 2.5 2.5 5-5 1.5 1.5-6.5 6.5z"/>
+                    </svg>
+                </span>
+            ` : ''}
+        `;
+      }
       if (channelLogo) channelLogo.src = channel.logo_url || "images/default-avatar.png";
       if (channelDescription) channelDescription.textContent = channel.channel_description || "Описание отсутствует";
       
-      // Обновляем счетчик подписчиков
-      if (subscribersCount) {
-        subscribersCount.textContent = `${channel.subscribers_count || 0} подписчиков`;
+      // Получаем актуальное количество подписчиков
+      const subscribersResponse = await fetch(`/api/channels/${channel.channel_id}/subscription/${userId}`);
+      if (subscribersResponse.ok) {
+        const subscribersData = await subscribersResponse.json();
+        if (subscribersCount) {
+          subscribersCount.textContent = `${subscribersData.subscribersCount} подписчиков`;
+        }
+      }
+      
+      // Показываем кнопку подтверждения email только если пользователь не подтвердил email
+      if (verifyEmailButton) {
+        if (!channel.is_verified) {
+          verifyEmailButton.classList.add('visible');
+        } else {
+          verifyEmailButton.classList.remove('visible');
+        }
       }
       
       // Загружаем видео канала
@@ -49,31 +74,35 @@ document.addEventListener("DOMContentLoaded", function() { // Убедимся, 
   // Функция для загрузки видео канала
   const loadChannelVideos = async (channelId) => {
     try {
-      const response = await fetch(`/api/channels/${channelId}/videos`);
-      if (!response.ok) {
-        throw new Error('Ошибка при загрузке видео');
-      }
-      
-      const videos = await response.json();
-      console.log('Загружены видео пользователя:', videos);
+        const user = JSON.parse(localStorage.getItem("user"));
+        if (!user) {
+            window.location.href = "enter.html";
+            return;
+        }
 
-      // Очищаем контейнер
-      videoList.innerHTML = '';
-
-      // Добавляем каждое видео
-      videos.forEach(video => {
-        const videoElement = createVideoElement(video);
-        videoList.appendChild(videoElement);
-      });
-
-      // Если видео нет, показываем сообщение
-      if (videos.length === 0) {
-        videoList.innerHTML = '<p class="no-videos">У вас пока нет загруженных видео</p>';
-      }
-
+        const response = await fetch(`/api/channels/${channelId}/videos?user_id=${user.user_id}`);
+        if (!response.ok) {
+            throw new Error('Ошибка при загрузке видео канала');
+        }
+        const videos = await response.json();
+        
+        // Очищаем список видео
+        videoList.innerHTML = '';
+        
+        if (videos.length === 0) {
+            videoList.innerHTML = '<p class="no-videos">У вас пока нет видео</p>';
+            return;
+        }
+        
+        // Отображаем видео
+        videos.forEach(video => {
+            // Показываем все видео владельцу канала (включая приватные и непубличные)
+            const videoElement = createVideoElement(video);
+            videoList.appendChild(videoElement);
+        });
     } catch (error) {
-      console.error('Ошибка:', error);
-      videoList.innerHTML = '<p class="error">Ошибка при загрузке видео</p>';
+        console.error('Ошибка при загрузке видео канала:', error);
+        videoList.innerHTML = '<p class="error-message">Ошибка при загрузке видео</p>';
     }
   };
 
@@ -205,6 +234,38 @@ document.addEventListener("DOMContentLoaded", function() { // Убедимся, 
   if (editProfileButton) {
     editProfileButton.addEventListener("click", () => {
       window.location.href = "edit-profile.html";
+    });
+  }
+
+  // Обработчик для кнопки подтверждения email
+  if (verifyEmailButton) {
+    verifyEmailButton.addEventListener('click', async () => {
+      try {
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (!user) {
+          alert('Требуется авторизация');
+          return;
+        }
+
+        const response = await fetch('/api/resend-verification', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ email: user.email })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          alert('Письмо с подтверждением отправлено на ваш email');
+        } else {
+          alert(data.message || 'Ошибка при отправке письма подтверждения');
+        }
+      } catch (error) {
+        console.error('Ошибка при отправке письма подтверждения:', error);
+        alert('Произошла ошибка при отправке письма подтверждения');
+      }
     });
   }
 });

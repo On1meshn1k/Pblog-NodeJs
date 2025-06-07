@@ -44,8 +44,9 @@ h1 {
     font-size: 18px
 }
 
-.avatar {
-    font-size: 18px
+.avatar-label {
+    font-size: 18px;
+    margin-top: 20px;
 }
 
 .channel-description {
@@ -96,7 +97,6 @@ button {
 input {
     text-align: center;
     width: 70%;
-    height: 20px;
 }
 
 .avatar-preview {

@@ -19,12 +19,12 @@
     <main>
       <form id="uploadForm" class="upload-form">
         <div class="form-group">
-          <label for="videoInput">Выберите видео (макс. 500MB)</label>
+          <label for="videoInput">Выберите видео (макс. 1GB)</label>
           <input type="file" id="videoInput" name="video" accept="video/*" required>
         </div>
 
         <div class="form-group">
-          <label for="thumbnailInput">Выберите обложку (макс. 5MB)</label>
+          <label for="thumbnailInput">Выберите обложку (макс. 100MB)</label>
           <input type="file" id="thumbnailInput" name="thumbnail" accept="image/*" required>
         </div>
 
@@ -36,6 +36,20 @@
         <div class="form-group">
           <label for="descriptionInput">Описание</label>
           <textarea id="descriptionInput" name="description" required></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="accessType">Тип доступа</label>
+          <select id="accessType" name="access_type" required>
+            <option value="public">Публичный</option>
+            <option value="private">Приватный</option>
+            <option value="unlisted">Непубличный</option>
+          </select>
+          <div class="access-type-description">
+            <p><strong>Публичный:</strong> Видео будет доступно всем пользователям</p>
+            <p><strong>Приватный:</strong> Видео будет доступно только вам</p>
+            <p><strong>Непубличный:</strong> Видео будет доступно по прямой ссылке</p>
+          </div>
         </div>
 
         <div id="errorMessage" class="error-message" style="display: none;"></div>

@@ -20,12 +20,6 @@
             </div>
         </div>
         <div class="nav-right flex-div">
-            <div class="channel-selector">
-                <select id="channelSelect" class="channel-select">
-                    <option value="">Выберите канал</option>
-                    <option value="create">+ Создать новый канал</option>
-                </select>
-            </div>
             <img src="images/upload.png" class="upload" id="upload">
             <span class="username" id="username"></span>
             <button class="logout" id="logout">Выйти</button>
@@ -36,16 +30,16 @@
 
     <div class="sidebar">
         <div class="shortcut-links">
-            <a href=""><img src="images/home_active.png">
+            <a href="index.html"><img src="images/home.png">
                 <p>Главная</p>
             </a>
             <a href="channel.html"><img src="images/subscriprion.png">
                 <p>Мой канал</p>
             </a>
-            <a href="playlists.html"><img src="images/library.png">
+            <a href="playlists.html"><img src="images/library_active.png">
                 <p>Плейлисты</p>
             </a>
-            <a href=""><img src="images/library.png">
+            <a href="history.html"><img src="images/history.png">
                 <p>История</p>
             </a>
             <hr>
@@ -58,7 +52,7 @@
         </div>
     </div>
 
-    <div class="container">
+    <div class="container main-content">
         <div class="playlist-view-header">
             <h1 id="playlistName"></h1>
             <p id="playlistDescription" class="playlist-description"></p>
@@ -74,8 +68,6 @@
     </div>
 
     <script src="js/playlist_view.js"></script>
-    <script src="js/script.js"></script>
-    <script src="js/auth.js"></script>
     <script src="js/main_script.js"></script>
 </body>
-</html> 
+</html>

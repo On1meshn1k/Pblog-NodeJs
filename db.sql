@@ -8,16 +8,19 @@ CREATE TABLE users (
     registration_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_login TIMESTAMP,
     profile_picture_url VARCHAR(255),
-    is_verified BOOLEAN DEFAULT FALSE
+    is_verified BOOLEAN DEFAULT FALSE,
+    is_admin BOOLEAN DEFAULT FALSE,
+    reset_token VARCHAR(255),
+    reset_token_expires TIMESTAMP
 );
 
 CREATE TABLE channels (
     channel_id Serial PRIMARY KEY,
-    user_id INT,
+    user_id INT REFERENCES users(user_id) ON DELETE CASCADE,
     channel_name VARCHAR(100) NOT NULL UNIQUE,
     channel_description TEXT,
     creation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+    logo_url VARCHAR(255) DEFAULT 'images/default-avatar.png'
 );
 
 CREATE TABLE videos (
@@ -29,8 +32,7 @@ CREATE TABLE videos (
     upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     video_url VARCHAR(255) NOT NULL,
     thumbnail_url VARCHAR(255),
-    views INT DEFAULT 0,
-    duration INT NOT NULL
+    views INT DEFAULT 0
 );
 
 CREATE TABLE comments (

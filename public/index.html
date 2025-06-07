@@ -9,8 +9,7 @@
     <script src="js/auth.js" defer></script>
     <script src="js/script.js" defer></script>
     <script src="js/main_script.js" defer></script>
-    <script src="js/channel_manager.js" defer></script>
-<!--    <script src="js/auth.js" defer></script>-->
+    <script src="js/search.js" defer></script>
     <title>PBlog</title>
 </head>
 
@@ -22,18 +21,14 @@
             <a href="index.html"><img src="images/logo.png" class="logo"></a>
         </div>
         <div class="nav-middle flex-div">
-            <div class="search-box flex-div">
-                <input type="text" id="searchInput" placeholder="Поиск">
-                <img src="images/search.png" id="searchButton">
-            </div>
+            <form class="search-form">
+                <input type="text" class="search-input" placeholder="Поиск видео...">
+                <button type="submit" class="search-icon">
+                    <img src="images/search.png">
+                </button>
+            </form>
         </div>
         <div class="nav-right flex-div">
-            <div class="channel-selector">
-                <select id="channelSelect" class="channel-select">
-                    <option value="">Выберите канал</option>
-                    <option value="create">+ Создать новый канал</option>
-                </select>
-            </div>
             <img src="images/upload.png" class="upload" id="upload">
             <span class="username" id="username"></span>
             <button class="logout" id="logout">Выйти</button>
@@ -53,7 +48,7 @@
             <a href="playlists.html"><img src="images/library.png">
                 <p>Плейлисты</p>
             </a>
-            <a href=""><img src="images/library.png">
+            <a href="history.html"><img src="images/history.png">
                 <p>История</p>
             </a>
             <hr>

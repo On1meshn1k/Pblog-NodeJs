@@ -84,46 +84,131 @@ if (signupForm) {
     });
 }
 
-// Обновляем функцию входа для сохранения всех данных пользователя
-async function loginUser(email, password) {
-    try {
-        const response = await fetch('/login', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ email, password })
+// Функция для отображения сообщений
+function showMessage(elementId, message, isError = false) {
+    const messageDiv = document.getElementById(elementId);
+    messageDiv.textContent = message;
+    messageDiv.className = 'message ' + (isError ? 'error' : 'success');
+    messageDiv.style.display = 'block';
+}
+
+// Обработчик формы входа
+document.addEventListener('DOMContentLoaded', () => {
+    const loginForm = document.getElementById('loginForm');
+    if (loginForm) {
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // Сохраняем токен и информацию о пользователе
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    
+                    // Перенаправляем на главную страницу
+                    window.location.href = '/';
+                } else {
+                    showMessage('message', data.message, true);
+                }
+            } catch (error) {
+                showMessage('message', 'Произошла ошибка при входе', true);
+            }
         });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            console.log("User logged in:", data);
-            localStorage.setItem('user', JSON.stringify(data.user));
-            window.location.href = '/';
-        } else {
-            console.error("Login failed:", data.message);
-            alert(data.message || 'Ошибка входа');
-        }
-    } catch (error) {
-        console.error("Error during login:", error);
-        alert('Произошла ошибка при попытке входа');
     }
-}
 
-// Проверяем, находимся ли мы на странице входа
-const signinForm = document.getElementById("signinForm");
-if (signinForm) {
-    signinForm.addEventListener("submit", function(e) {
-        e.preventDefault();
-        
-        const emailInput = document.getElementById("email1");
-        const passwordInput = document.getElementById("password1");
-        
-        if (emailInput && passwordInput) {
-            const email = emailInput.value;
-            const password = passwordInput.value;
-            loginUser(email, password);
+    // Обработчик формы восстановления пароля
+    const forgotPasswordForm = document.getElementById('forgotPasswordForm');
+    if (forgotPasswordForm) {
+        forgotPasswordForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            
+            try {
+                const response = await fetch('/api/forgot-password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email })
+                });
+                
+                const data = await response.json();
+                
+                showMessage('message', data.message, !response.ok);
+                
+                if (response.ok) {
+                    forgotPasswordForm.reset();
+                }
+            } catch (error) {
+                showMessage('message', 'Произошла ошибка при отправке запроса', true);
+            }
+        });
+    }
+
+    // Обработчик формы сброса пароля
+    const resetPasswordForm = document.getElementById('resetPasswordForm');
+    if (resetPasswordForm) {
+        // Получаем токен из URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+
+        if (!token) {
+            showMessage('message', 'Недействительная ссылка для сброса пароля', true);
+            resetPasswordForm.style.display = 'none';
+            return;
         }
-    });
-}
+
+        resetPasswordForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            
+            if (password !== confirmPassword) {
+                showMessage('message', 'Пароли не совпадают', true);
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/reset-password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        token,
+                        newPassword: password
+                    })
+                });
+                
+                const data = await response.json();
+                
+                showMessage('message', data.message, !response.ok);
+                
+                if (response.ok) {
+                    resetPasswordForm.reset();
+                    // Перенаправляем на страницу входа через 3 секунды
+                    setTimeout(() => {
+                        window.location.href = '/enter.html';
+                    }, 3000);
+                }
+            } catch (error) {
+                showMessage('message', 'Произошла ошибка при сбросе пароля', true);
+            }
+        });
+    }
+});
