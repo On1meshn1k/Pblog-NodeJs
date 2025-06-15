@@ -2048,8 +2048,8 @@ app.post('/api/channels/:channelId/subscription', async (req, res) => {
         } else {
             // Если подписки нет - подписываемся
             await db.promise().query(
-                'INSERT INTO subscriptions (channel_id, subscriber_id) VALUES (?, ?)',
-                [channelId, userId]
+                'INSERT INTO subscriptions (subscriber_id, channel_id) VALUES (?, ?)',
+                [userId, channelId]
             );
             res.json({ 
                 action: 'subscribed',
