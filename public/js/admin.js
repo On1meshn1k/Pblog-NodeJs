@@ -124,16 +124,23 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const userList = document.getElementById('adminUserList');
         userList.innerHTML = users.map(user => `
-            <div class="user-item">
+            <div class="user-item ${user.status === 'deleted' ? 'deleted-user' : ''}">
                 <div class="item-info">
                     <h3>${user.username}</h3>
                     <p>Email: ${user.email}</p>
                     <p>Роль: ${user.is_admin ? 'Администратор' : 'Пользователь'}</p>
+                    <p>Статус: ${user.status === 'deleted' ? 'Удален' : 'Активен'}</p>
                 </div>
                 <div class="item-actions">
-                    <button class="btn btn-danger" onclick="deleteUser(${user.user_id})">
-                        <i class="fas fa-trash"></i> Удалить
-                    </button>
+                    ${user.status === 'working' ? `
+                        <button class="btn btn-danger" onclick="deleteUser(${user.user_id})">
+                            <i class="fas fa-trash"></i> Удалить
+                        </button>
+                    ` : `
+                        <button class="btn btn-success" onclick="restoreUser(${user.user_id})">
+                            <i class="fas fa-undo"></i> Восстановить
+                        </button>
+                    `}
                     <button class="btn" onclick="toggleAdmin(${user.user_id}, ${!user.is_admin})">
                         ${user.is_admin ? 'Убрать админа' : 'Сделать админом'}
                     </button>
@@ -258,6 +265,37 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (error) {
                 console.error('Ошибка:', error);
                 alert('Произошла ошибка при удалении пользователя');
+            }
+        });
+    };
+
+    window.restoreUser = async (userId) => {
+        showModal('Вы уверены, что хотите восстановить этого пользователя?', async () => {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    throw new Error('Требуется авторизация');
+                }
+
+                const response = await fetch(`/api/users/${userId}/restore`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (handleAuthError(response)) return;
+
+                if (response.ok) {
+                    await loadUsers();
+                    alert('Пользователь успешно восстановлен');
+                } else {
+                    throw new Error('Ошибка при восстановлении пользователя');
+                }
+            } catch (error) {
+                console.error('Ошибка:', error);
+                alert('Произошла ошибка при восстановлении пользователя');
             }
         });
     };

@@ -162,19 +162,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Обработчик формы сброса пароля
     const resetPasswordForm = document.getElementById('resetPasswordForm');
     if (resetPasswordForm) {
-        // Получаем токен из URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get('token');
-
-        if (!token) {
-            showMessage('message', 'Недействительная ссылка для сброса пароля', true);
-            resetPasswordForm.style.display = 'none';
-            return;
-        }
-
         resetPasswordForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             
+            const token = new URLSearchParams(window.location.search).get('token');
             const password = document.getElementById('password').value;
             const confirmPassword = document.getElementById('confirmPassword').value;
             
@@ -189,10 +180,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ 
-                        token,
-                        newPassword: password
-                    })
+                    body: JSON.stringify({ token, password })
                 });
                 
                 const data = await response.json();
@@ -200,11 +188,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 showMessage('message', data.message, !response.ok);
                 
                 if (response.ok) {
-                    resetPasswordForm.reset();
-                    // Перенаправляем на страницу входа через 3 секунды
                     setTimeout(() => {
                         window.location.href = '/enter.html';
-                    }, 3000);
+                    }, 2000);
                 }
             } catch (error) {
                 showMessage('message', 'Произошла ошибка при сбросе пароля', true);

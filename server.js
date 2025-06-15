@@ -226,6 +226,7 @@ db.connect((err) => {
     // Проверяем и добавляем необходимые поля
     checkAndAddAdminField();
     checkAndAddVerificationFields();
+    checkAndAddStatusField();
 });
 
 // Функция для проверки и добавления поля is_admin
@@ -280,6 +281,28 @@ const checkAndAddVerificationFields = async () => {
     }
 };
 
+// Функция для проверки и добавления поля status
+const checkAndAddStatusField = async () => {
+    try {
+        // Проверяем существование поля status
+        const [columns] = await db.promise().query(`
+            SHOW COLUMNS FROM users LIKE 'status'
+        `);
+
+        if (columns.length === 0) {
+            // Добавляем поле status, если его нет
+            await db.promise().query(`
+                ALTER TABLE users 
+                ADD COLUMN status VARCHAR(20) DEFAULT 'working' CHECK (status IN ('working', 'deleted'))
+            `);
+
+            console.log('Поле status успешно добавлено в таблицу users');
+        }
+    } catch (error) {
+        console.error('Ошибка при проверке поля status:', error);
+    }
+};
+
 // Создание таблицы пользователей
 db.query(`
     CREATE TABLE IF NOT EXISTS users (
@@ -296,6 +319,7 @@ db.query(`
         reset_token_expires TIMESTAMP,
         verification_token VARCHAR(255),
         verification_token_expires DATETIME,
+        status VARCHAR(20) DEFAULT 'working',
         UNIQUE KEY unique_username (username),
         UNIQUE KEY unique_email (email),
         UNIQUE KEY unique_verification_token (verification_token),
@@ -555,10 +579,11 @@ app.get("/api/videos", (req, res) => {
         LEFT JOIN channels c ON v.channel_id = c.channel_id
         LEFT JOIN video_access va ON v.video_id = va.video_id
         WHERE va.access_type = 'public'
+        AND u.status = 'working'
     `;
 
     if (userId) {
-        query += ` OR (va.access_type = 'private' AND v.user_id = ?)`;
+        query += ` OR (va.access_type = 'private' AND v.user_id = ? AND u.status = 'working')`;
     }
 
     if (searchQuery) {
@@ -576,21 +601,9 @@ app.get("/api/videos", (req, res) => {
 
     db.query(query, params, (err, results) => {
         if (err) {
-            console.error('Ошибка при получении видео:', {
-                message: err.message,
-                code: err.code,
-                sqlMessage: err.sqlMessage,
-                sqlState: err.sqlState,
-                stack: err.stack
-            });
-            return res.status(500).json({ 
-                error: 'Ошибка при получении списка видео',
-                details: err.message,
-                code: err.code,
-                sqlMessage: err.sqlMessage
-            });
+            console.error('Ошибка при получении видео:', err);
+            return res.status(500).json({ error: 'Ошибка при получении списка видео' });
         }
-        console.log('Успешно получено видео:', results.length);
         res.json(results);
     });
 });
@@ -1257,6 +1270,7 @@ app.get('/api/videos/:id', async (req, res) => {
                 u.username as author_name,
                 u.profile_picture_url as author_avatar,
                 u.user_id as author_id,
+                u.status as user_status,
                 va.access_type
             FROM videos v
             LEFT JOIN channels c ON v.channel_id = c.channel_id
@@ -1275,23 +1289,20 @@ app.get('/api/videos/:id', async (req, res) => {
 
         const video = videos[0];
 
+        // Проверяем статус автора видео
+        if (video.user_status === 'deleted') {
+            return res.status(404).json({ 
+                message: 'Видео не найдено',
+                error: 'VIDEO_NOT_FOUND'
+            });
+        }
+
         // Проверяем доступ к видео
-        if (video.access_type === 'private') {
-            if (!userId || parseInt(userId) !== video.user_id) {
-                return res.status(403).json({
-                    message: 'Нет доступа к этому видео',
-                    error: 'ACCESS_DENIED'
-                });
-            }
-        } else if (video.access_type === 'unlisted') {
-            // Для непубличных видео проверяем, что запрос пришел по прямой ссылке
-            const referer = req.headers.referer;
-            if (!referer || !referer.includes(`/video.html?id=${videoId}`)) {
-                return res.status(403).json({
-                    message: 'Нет доступа к этому видео',
-                    error: 'ACCESS_DENIED'
-                });
-            }
+        if (video.access_type === 'private' && video.user_id !== parseInt(userId)) {
+            return res.status(403).json({ 
+                message: 'Нет доступа к этому видео',
+                error: 'ACCESS_DENIED'
+            });
         }
 
         // Проверяем существование файла видео
@@ -1684,10 +1695,10 @@ app.get('/api/users/:userId/videos', async (req, res) => {
     try {
         const userId = req.params.userId;
         
-        // Проверяем существование пользователя
-        const [user] = await db.promise().query('SELECT * FROM users WHERE user_id = ?', [userId]);
+        // Проверяем существование пользователя и его статус
+        const [user] = await db.promise().query('SELECT * FROM users WHERE user_id = ? AND status = ?', [userId, 'working']);
         if (user.length === 0) {
-            return res.status(404).json({ error: 'Пользователь не найден' });
+            return res.status(404).json({ error: 'Пользователь не найден или удален' });
         }
 
         // Получаем видео пользователя
@@ -1695,9 +1706,9 @@ app.get('/api/users/:userId/videos', async (req, res) => {
             SELECT v.*, u.username as uploader_name 
             FROM videos v 
             JOIN users u ON v.user_id = u.user_id 
-            WHERE v.user_id = ? 
+            WHERE v.user_id = ? AND u.status = ?
             ORDER BY v.upload_date DESC
-        `, [userId]);
+        `, [userId, 'working']);
 
         res.json(videos);
     } catch (error) {
@@ -1711,18 +1722,20 @@ app.get('/api/users/:userId/channels', async (req, res) => {
     try {
         const userId = req.params.userId;
         
-        // Проверяем существование пользователя
-        const [user] = await db.promise().query('SELECT * FROM users WHERE user_id = ?', [userId]);
+        // Проверяем существование пользователя и его статус
+        const [user] = await db.promise().query('SELECT * FROM users WHERE user_id = ? AND status = ?', [userId, 'working']);
         if (user.length === 0) {
-            return res.status(404).json({ error: 'Пользователь не найден' });
+            return res.status(404).json({ error: 'Пользователь не найден или удален' });
         }
 
         // Получаем каналы пользователя
         const [channels] = await db.promise().query(`
-            SELECT * FROM channels 
-            WHERE user_id = ? 
-            ORDER BY creation_date DESC
-        `, [userId]);
+            SELECT c.* 
+            FROM channels c
+            JOIN users u ON c.user_id = u.user_id
+            WHERE c.user_id = ? AND u.status = ?
+            ORDER BY c.creation_date DESC
+        `, [userId, 'working']);
 
         res.json(channels);
     } catch (error) {
@@ -1905,13 +1918,20 @@ app.get('/api/channels/:channelId/videos', async (req, res) => {
         const channelId = req.params.channelId;
         const userId = req.query.user_id; // Получаем ID пользователя из query параметров
 
-        // Получаем информацию о канале
-        const [channel] = await db.promise().query(
-            'SELECT user_id FROM channels WHERE channel_id = ?',
-            [channelId]
-        );
+        // Получаем информацию о канале и его владельце
+        const [channel] = await db.promise().query(`
+            SELECT c.*, u.status as user_status 
+            FROM channels c
+            JOIN users u ON c.user_id = u.user_id
+            WHERE c.channel_id = ?
+        `, [channelId]);
 
         if (channel.length === 0) {
+            return res.status(404).json({ error: 'Канал не найден' });
+        }
+
+        // Проверяем статус владельца канала
+        if (channel[0].user_status === 'deleted') {
             return res.status(404).json({ error: 'Канал не найден' });
         }
 
@@ -1923,6 +1943,7 @@ app.get('/api/channels/:channelId/videos', async (req, res) => {
             JOIN users u ON v.user_id = u.user_id 
             LEFT JOIN video_access va ON v.video_id = va.video_id
             WHERE v.channel_id = ? 
+            AND u.status = 'working'
             AND (
                 va.access_type = 'public' 
                 OR (va.access_type IN ('private', 'unlisted') AND v.user_id = ?)
@@ -1970,12 +1991,19 @@ app.get('/api/channels/:channelId/subscription/:userId', async (req, res) => {
     
     try {
         // Получаем информацию о канале и подписке
-        const [channel] = await db.promise().query(
-            'SELECT user_id FROM channels WHERE channel_id = ?',
-            [channelId]
-        );
+        const [channel] = await db.promise().query(`
+            SELECT c.user_id, u.status as user_status
+            FROM channels c
+            JOIN users u ON c.user_id = u.user_id
+            WHERE c.channel_id = ?
+        `, [channelId]);
         
         if (channel.length === 0) {
+            return res.status(404).json({ error: 'Канал не найден' });
+        }
+
+        // Проверяем статус владельца канала
+        if (channel[0].user_status === 'deleted') {
             return res.status(404).json({ error: 'Канал не найден' });
         }
 
@@ -1998,10 +2026,14 @@ app.get('/api/channels/:channelId/subscription/:userId', async (req, res) => {
 // Получение количества подписчиков канала
 async function getSubscribersCount(channelId) {
     try {
-        const [result] = await db.promise().query(
-            'SELECT COUNT(*) as count FROM subscriptions WHERE channel_id = ?',
-            [channelId]
-        );
+        const [result] = await db.promise().query(`
+            SELECT COUNT(*) as count 
+            FROM subscriptions s
+            JOIN channels c ON s.channel_id = c.channel_id
+            JOIN users u ON c.user_id = u.user_id
+            WHERE s.channel_id = ?
+            AND u.status = 'working'
+        `, [channelId]);
         return result[0].count;
     } catch (error) {
         console.error('Ошибка при подсчете подписчиков:', error);
@@ -2016,12 +2048,19 @@ app.post('/api/channels/:channelId/subscription', async (req, res) => {
     
     try {
         // Проверяем, не пытается ли пользователь подписаться на свой канал
-        const [channel] = await db.promise().query(
-            'SELECT user_id FROM channels WHERE channel_id = ?',
-            [channelId]
-        );
+        const [channel] = await db.promise().query(`
+            SELECT c.user_id, u.status as user_status
+            FROM channels c
+            JOIN users u ON c.user_id = u.user_id
+            WHERE c.channel_id = ?
+        `, [channelId]);
         
         if (channel.length === 0) {
+            return res.status(404).json({ error: 'Канал не найден' });
+        }
+
+        // Проверяем статус владельца канала
+        if (channel[0].user_status === 'deleted') {
             return res.status(404).json({ error: 'Канал не найден' });
         }
         
@@ -2069,7 +2108,9 @@ app.get('/api/users/:userId/subscriptions', async (req, res) => {
             SELECT c.channel_id, c.channel_name, c.logo_url
             FROM subscriptions s
             JOIN channels c ON s.channel_id = c.channel_id
+            JOIN users u ON c.user_id = u.user_id
             WHERE s.subscriber_id = ?
+            AND u.status = 'working'
             ORDER BY s.subscription_date DESC
         `, [req.params.userId]);
 
@@ -2122,7 +2163,7 @@ app.delete('/api/comments/:id', checkAdmin, async (req, res) => {
 // Получение всех пользователей
 app.get('/api/users', checkAdmin, async (req, res) => {
     try {
-        const [users] = await db.promise().query('SELECT user_id, username, email, is_admin FROM users');
+        const [users] = await db.promise().query('SELECT user_id, username, email, is_admin, status FROM users');
         res.json(users);
     } catch (error) {
         console.error('Ошибка при получении пользователей:', error);
@@ -2149,37 +2190,12 @@ app.delete('/api/users/:id', checkAdmin, async (req, res) => {
         await connection.beginTransaction();
 
         try {
-            // Получаем все видео пользователя для удаления файлов
-            const [videos] = await connection.query('SELECT video_url, thumbnail_url FROM videos WHERE user_id = ?', [userId]);
-            
-            // Удаляем файлы видео и обложек
-            for (const video of videos) {
-                const videoPath = path.join(__dirname, 'public', video.video_url);
-                const thumbnailPath = path.join(__dirname, 'public', video.thumbnail_url);
-                
-                if (fs.existsSync(videoPath)) {
-                    fs.unlinkSync(videoPath);
-                }
-                if (fs.existsSync(thumbnailPath)) {
-                    fs.unlinkSync(thumbnailPath);
-                }
-            }
-
-            // Удаляем все связанные записи в правильном порядке
-            await connection.query('DELETE FROM subscriptions WHERE subscriber_id = ? OR channel_id IN (SELECT channel_id FROM channels WHERE user_id = ?)', [userId, userId]);
-            await connection.query('DELETE FROM video_likes WHERE user_id = ?', [userId]);
-            await connection.query('DELETE FROM video_dislikes WHERE user_id = ?', [userId]);
-            await connection.query('DELETE FROM video_views WHERE user_id = ?', [userId]);
-            await connection.query('DELETE FROM playlists_videos WHERE playlist_id IN (SELECT playlist_id FROM playlists WHERE user_id = ?)', [userId]);
-            await connection.query('DELETE FROM videos WHERE user_id = ?', [userId]);
-            await connection.query('DELETE FROM channels WHERE user_id = ?', [userId]);
-            
-            // Удаляем самого пользователя
-            await connection.query('DELETE FROM users WHERE user_id = ?', [userId]);
+            // Мягкое удаление пользователя
+            await connection.query('UPDATE users SET status = ? WHERE user_id = ?', ['deleted', userId]);
 
             // Подтверждаем транзакцию
             await connection.commit();
-            res.json({ message: 'Пользователь и все связанные данные успешно удалены' });
+            res.json({ message: 'Пользователь успешно удален' });
         } catch (error) {
             // В случае ошибки откатываем транзакцию
             await connection.rollback();
@@ -2503,21 +2519,30 @@ app.delete('/api/playlists/:playlistId/videos/:videoId', async (req, res) => {
 app.get('/api/playlists/:playlistId/videos', async (req, res) => {
     try {
         const playlistId = req.params.playlistId;
+        const userId = req.query.user_id;
 
         const [videos] = await db.promise().query(`
             SELECT 
                 v.*, 
                 u.username as author_name,
                 u.profile_picture_url as author_avatar,
+                u.status as user_status,
                 c.channel_name,
-                c.logo_url as channel_avatar
+                c.logo_url as channel_avatar,
+                va.access_type
             FROM playlists_videos pv
             JOIN videos v ON pv.video_id = v.video_id
             JOIN users u ON v.user_id = u.user_id
             JOIN channels c ON v.channel_id = c.channel_id
+            LEFT JOIN video_access va ON v.video_id = va.video_id
             WHERE pv.playlist_id = ?
+            AND u.status = 'working'
+            AND (
+                va.access_type = 'public'
+                OR (va.access_type IN ('private', 'unlisted') AND v.user_id = ?)
+            )
             ORDER BY pv.added_date DESC
-        `, [playlistId]);
+        `, [playlistId, userId || 0]);
 
         res.json(videos);
     } catch (error) {
@@ -2882,11 +2907,15 @@ app.get('/api/search', async (req, res) => {
 
     try {
         const query = `
-            SELECT v.*, c.channel_name, 
+            SELECT v.*, c.channel_name, u.username as author_name,
                    DATE_FORMAT(v.upload_date, '%d.%m.%Y') as formatted_date
             FROM videos v
             JOIN channels c ON v.channel_id = c.channel_id
-            WHERE v.title LIKE ? OR v.description LIKE ?
+            JOIN users u ON v.user_id = u.user_id
+            JOIN video_access va ON v.video_id = va.video_id
+            WHERE (v.title LIKE ? OR v.description LIKE ?)
+            AND u.status = 'working'
+            AND va.access_type = 'public'
             ORDER BY v.upload_date DESC
         `;
         
@@ -2906,6 +2935,7 @@ app.get('/api/search', async (req, res) => {
                 video_url: video.video_url,
                 views: video.views,
                 channel_name: video.channel_name,
+                author_name: video.author_name,
                 upload_date: video.formatted_date
             }));
 
@@ -2914,5 +2944,40 @@ app.get('/api/search', async (req, res) => {
     } catch (error) {
         console.error('Ошибка при поиске видео:', error);
         res.json({ success: false, message: 'Ошибка при поиске видео' });
+    }
+});
+
+// Вызываем функцию при запуске сервера
+checkAndAddStatusField();
+
+// Восстановление пользователя
+app.post('/api/users/:id/restore', checkAdmin, async (req, res) => {
+    try {
+        const userId = req.params.id;
+        const [user] = await db.promise().query('SELECT * FROM users WHERE user_id = ?', [userId]);
+
+        if (user.length === 0) {
+            return res.status(404).json({ error: 'Пользователь не найден' });
+        }
+
+        // Начинаем транзакцию
+        const connection = await db.promise();
+        await connection.beginTransaction();
+
+        try {
+            // Восстанавливаем пользователя
+            await connection.query('UPDATE users SET status = ? WHERE user_id = ?', ['working', userId]);
+
+            // Подтверждаем транзакцию
+            await connection.commit();
+            res.json({ message: 'Пользователь успешно восстановлен' });
+        } catch (error) {
+            // В случае ошибки откатываем транзакцию
+            await connection.rollback();
+            throw error;
+        }
+    } catch (error) {
+        console.error('Ошибка при восстановлении пользователя:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
     }
 });

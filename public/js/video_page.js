@@ -412,6 +412,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // Загружаем другие видео
             await loadOtherVideos();
 
+            // Загружаем плейлисты пользователя
+            await loadUserPlaylists();
+
             // Регистрируем просмотр при загрузке страницы
             await updateVideoViews(videoId);
 

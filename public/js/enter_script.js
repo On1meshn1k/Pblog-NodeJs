@@ -88,17 +88,13 @@ signInForm.addEventListener("submit", async function(event) {
         const data = await response.json();
 
         if (!response.ok) {
-            throw new Error(data.message || "Неправильный email или пароль");
+            throw new Error(data.message || "Ошибка входа");
         }
 
-        // Сохраняем данные пользователя и токен
-        localStorage.setItem("user", JSON.stringify(data.user));
-        localStorage.setItem("token", data.token);
-        
-        // Перенаправляем на главную страницу
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
         window.location.href = "/";
-
     } catch (error) {
-        alert(error.message || "Произошла ошибка при входе");
+        alert(error.message);
     }
 });

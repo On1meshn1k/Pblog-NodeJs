@@ -245,4 +245,18 @@ body {
     display: -webkit-box;
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
+}
+
+.deleted-user {
+    opacity: 0.7;
+    background-color: #f8f9fa;
+}
+
+.deleted-user .item-info h3 {
+    text-decoration: line-through;
+    color: #6c757d;
+}
+
+.deleted-user .item-info p {
+    color: #6c757d;
 } 
